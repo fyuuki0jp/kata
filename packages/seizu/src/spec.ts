@@ -15,6 +15,8 @@ export type {
   InvariantClause,
   LawClause,
   ObservedEffects,
+  SpecDependency,
+  SpecDependencyMode,
   SpecRef,
   TransitionContext,
 } from './spec/clauses';
@@ -25,6 +27,8 @@ export {
   given,
   invariant,
   law,
+  specRefId,
+  specRefMode,
 } from './spec/clauses';
 // Graph
 export {

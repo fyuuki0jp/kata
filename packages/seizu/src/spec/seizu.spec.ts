@@ -673,10 +673,10 @@ export const graphValidationUsecase: UsecaseSpec = usecaseSpec({
   ],
   effects: [],
   dependsOn: [
-    'LAW-GraphTopologicalSort',
-    'LAW-GraphCycleDetection',
-    'LAW-ObligationIdFormat',
-    'LAW-ObligationCount',
+    { id: 'LAW-GraphTopologicalSort', mode: 'trace' },
+    { id: 'LAW-GraphCycleDetection', mode: 'trace' },
+    { id: 'LAW-ObligationIdFormat', mode: 'trace' },
+    { id: 'LAW-ObligationCount', mode: 'trace' },
   ],
 });
 

@@ -1,3 +1,4 @@
+import { specRefId, specRefMode } from './clauses';
 import type { AnySpec } from './specs';
 
 export interface ObligationRecord {
@@ -19,12 +20,13 @@ export function generateObligations(
       // metadata-only, no executable obligations
       // traceability obligations based on dependsOn
       for (const dep of spec.dependsOn) {
+        const depId = specRefId(dep);
         obligations.push({
-          id: `${spec.id}:dep:${dep}`,
+          id: `${spec.id}:dep:${depId}`,
           specId: spec.id,
           kind: 'dep',
-          clauseId: dep,
-          description: `Dependency "${dep}" must be valid`,
+          clauseId: depId,
+          description: `Dependency "${depId}" must be valid`,
         });
       }
       break;
@@ -121,12 +123,14 @@ export function generateObligations(
       });
       // SMT refinement per dependency
       for (const dep of spec.dependsOn) {
+        if (specRefMode(dep) !== 'axiom') continue;
+        const depId = specRefId(dep);
         obligations.push({
-          id: `${spec.id}:smt:refinement:${dep}`,
+          id: `${spec.id}:smt:refinement:${depId}`,
           specId: spec.id,
           kind: 'smt',
-          clauseId: `refinement:${dep}`,
-          description: `Refinement from "${dep}" is valid`,
+          clauseId: `refinement:${depId}`,
+          description: `Refinement from "${depId}" is valid`,
         });
       }
       break;

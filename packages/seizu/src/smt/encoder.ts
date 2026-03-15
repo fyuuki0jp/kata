@@ -6,6 +6,9 @@ export interface SmtEncoding {
   readonly checkSat: string;
 }
 
+type SmtLogic = 'QF_LIA' | 'LIA' | 'QF_SLIA' | 'ALL';
+type MembershipDecl = { readonly name: string; readonly sort: SmtSort };
+
 /**
  * Collect all variables referenced in an expression.
  * Walks the IR tree and gathers all leaf var/prop references,
@@ -63,6 +66,10 @@ function collectVarsRecursive(expr: SmtExpr, vars: Map<string, SmtVar>): void {
     case 'call':
       for (const arg of expr.args) {
         collectVarsRecursive(arg, vars);
+      }
+      if (expr.callee === 'String.startsWith') {
+        markSort(expr.args[0] ?? expr, vars, 'String');
+        markSort(expr.args[1] ?? expr, vars, 'String');
       }
       break;
     case 'forall':
@@ -134,6 +141,60 @@ function exprToVarName(expr: SmtExpr): string | null {
   return null;
 }
 
+function sanitizeIdentifierPart(value: string): string {
+  return value.replace(/[^a-zA-Z0-9_]/g, '_');
+}
+
+function flattenCallArg(expr: SmtExpr): string {
+  switch (expr.kind) {
+    case 'literal':
+      return sanitizeIdentifierPart(String(expr.value));
+    case 'var':
+    case 'prop':
+      return flattenPropAccess(expr);
+    case 'length':
+      return `${flattenPropAccess(expr.obj)}_length`;
+    default:
+      return 'arg';
+  }
+}
+
+function flattenCall(expr: Extract<SmtExpr, { kind: 'call' }>): string {
+  const callee = sanitizeIdentifierPart(expr.callee.replaceAll('.', '_'));
+  const args = expr.args.map((arg) => flattenCallArg(arg)).filter(Boolean);
+  return args.length > 0 ? `${callee}_${args.join('_')}` : callee;
+}
+
+function inferExprSort(expr: SmtExpr): SmtSort {
+  if (expr.kind === 'literal') {
+    if (typeof expr.value === 'boolean') return 'Bool';
+    if (typeof expr.value === 'string') return 'String';
+    return 'Int';
+  }
+  return 'Int';
+}
+
+function membershipPredicateName(domain: string, sort: SmtSort): string {
+  return `member_of_${domain}_${sort}`;
+}
+
+function encodeSpecialCall(
+  expr: Extract<SmtExpr, { kind: 'call' }>
+): string | null {
+  if (expr.callee === 'String.startsWith' && expr.args.length === 2) {
+    return `(str.prefixof ${encodeExpr(expr.args[1])} ${encodeExpr(expr.args[0])})`;
+  }
+
+  if (expr.callee === 'Collection.includes' && expr.args.length === 2) {
+    const domain = flattenPropAccess(expr.args[0]);
+    const needle = expr.args[1];
+    const sort = inferExprSort(needle);
+    return `(${membershipPredicateName(domain, sort)} ${encodeExpr(needle)})`;
+  }
+
+  return null;
+}
+
 /**
  * Flatten a chain of property accesses to a single SMT variable name.
  * ctx.input.amount -> ctx_input_amount
@@ -141,6 +202,9 @@ function exprToVarName(expr: SmtExpr): string | null {
 export function flattenPropAccess(expr: SmtExpr): string {
   if (expr.kind === 'prop') {
     return `${flattenPropAccess(expr.obj)}_${expr.prop}`;
+  }
+  if (expr.kind === 'call') {
+    return flattenCall(expr);
   }
   if (expr.kind === 'var') {
     return expr.path.length > 0
@@ -178,7 +242,10 @@ export function encodeExpr(expr: SmtExpr): string {
     case 'ternary':
       return `(ite ${encodeExpr(expr.cond)} ${encodeExpr(expr.thenExpr)} ${encodeExpr(expr.else)})`;
     case 'call':
-      return `(${expr.callee} ${expr.args.map((a) => encodeExpr(a)).join(' ')})`;
+      return (
+        encodeSpecialCall(expr) ??
+        `(${expr.callee} ${expr.args.map((a) => encodeExpr(a)).join(' ')})`
+      );
     case 'length':
       return `${flattenPropAccess(expr.obj)}_length`;
     case 'forall': {
@@ -259,7 +326,10 @@ export function hasStrings(expr: SmtExpr): boolean {
     case 'prop':
       return hasStrings(expr.obj);
     case 'call':
-      return expr.args.some((a) => hasStrings(a));
+      return (
+        expr.callee === 'String.startsWith' ||
+        expr.args.some((a) => hasStrings(a))
+      );
     case 'forall':
       return hasStrings(expr.domain) || hasStrings(expr.body);
     case 'exists':
@@ -297,6 +367,89 @@ export function hasQuantifiers(expr: SmtExpr): boolean {
   }
 }
 
+function collectMembershipDeclarations(
+  expr: SmtExpr,
+  declarations: Map<string, MembershipDecl>
+): void {
+  switch (expr.kind) {
+    case 'forall':
+    case 'exists': {
+      const domain = flattenPropAccess(expr.domain);
+      declarations.set(`member_of_${domain}`, {
+        name: `member_of_${domain}`,
+        sort: 'Int',
+      });
+      collectMembershipDeclarations(expr.domain, declarations);
+      collectMembershipDeclarations(expr.body, declarations);
+      break;
+    }
+    case 'call':
+      if (expr.callee === 'Collection.includes' && expr.args.length === 2) {
+        const domain = flattenPropAccess(expr.args[0]);
+        const sort = inferExprSort(expr.args[1]);
+        const name = membershipPredicateName(domain, sort);
+        declarations.set(name, { name, sort });
+      }
+      for (const arg of expr.args) {
+        collectMembershipDeclarations(arg, declarations);
+      }
+      break;
+    case 'binop':
+      collectMembershipDeclarations(expr.left, declarations);
+      collectMembershipDeclarations(expr.right, declarations);
+      break;
+    case 'unop':
+      collectMembershipDeclarations(expr.expr, declarations);
+      break;
+    case 'ternary':
+      collectMembershipDeclarations(expr.cond, declarations);
+      collectMembershipDeclarations(expr.thenExpr, declarations);
+      collectMembershipDeclarations(expr.else, declarations);
+      break;
+    case 'length':
+      collectMembershipDeclarations(expr.obj, declarations);
+      break;
+    case 'prop':
+      collectMembershipDeclarations(expr.obj, declarations);
+      break;
+    default:
+      break;
+  }
+}
+
+export function selectLogic(exprs: readonly SmtExpr[]): SmtLogic {
+  const needsQuantifiers = exprs.some((expr) => hasQuantifiers(expr));
+  const needsStrings = exprs.some((expr) => hasStrings(expr));
+
+  if (needsStrings) {
+    return needsQuantifiers ? 'ALL' : 'QF_SLIA';
+  }
+
+  return needsQuantifiers ? 'LIA' : 'QF_LIA';
+}
+
+export function buildPrelude(
+  declarations: readonly SmtVar[],
+  exprs: readonly SmtExpr[]
+): readonly string[] {
+  const lines: string[] = [`(set-logic ${selectLogic(exprs)})`, ''];
+
+  for (const variable of declarations) {
+    lines.push(`(declare-const ${variable.name} ${variable.sort})`);
+  }
+
+  const membershipDeclarations = new Map<string, MembershipDecl>();
+  for (const expr of exprs) {
+    collectMembershipDeclarations(expr, membershipDeclarations);
+  }
+  for (const declaration of membershipDeclarations.values()) {
+    lines.push(`(declare-fun ${declaration.name} (${declaration.sort}) Bool)`);
+  }
+
+  lines.push('');
+  return lines;
+}
+
 /**
  * Build a complete SMT-LIB program for a proof obligation.
  *
@@ -313,27 +466,8 @@ export function buildSmtLib(
   preconditions: readonly SmtExpr[],
   goal: SmtExpr
 ): string {
-  const lines: string[] = [];
-
-  // Choose logic based on expression features
   const allExprs = [...axioms, ...preconditions, goal];
-  const needsQuantifiers = allExprs.some((e) => hasQuantifiers(e));
-  const needsStrings = allExprs.some((e) => hasStrings(e));
-  const logic = needsStrings
-    ? needsQuantifiers
-      ? 'ALL'
-      : 'QF_SLIA'
-    : needsQuantifiers
-      ? 'LIA'
-      : 'QF_LIA';
-  lines.push(`(set-logic ${logic})`);
-  lines.push('');
-
-  // Declare constants
-  for (const v of declarations) {
-    lines.push(`(declare-const ${v.name} ${v.sort})`);
-  }
-  lines.push('');
+  const lines = [...buildPrelude(declarations, allExprs)];
 
   // Assert axioms (throws SmtEncodingError if unsupported)
   for (const axiom of axioms) {

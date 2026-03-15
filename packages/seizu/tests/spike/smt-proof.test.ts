@@ -1,8 +1,10 @@
 import { describe, expect, test } from 'vitest';
 import {
+  buildPrelude,
   buildSmtLib,
   collectVariables,
   encodeExpr,
+  selectLogic,
 } from '../../src/smt/encoder';
 import { extractPredicateIR } from '../../src/smt/extractor';
 
@@ -173,5 +175,112 @@ describe('SMT Spike', () => {
     // Should parse to a call node (not crash)
     // The call node represents items.includes(42)
     expect(ir.kind).toBeDefined();
+  });
+
+  test('selects string-capable logic for string comparisons', () => {
+    const stringExpr = {
+      kind: 'binop' as const,
+      op: '===' as const,
+      left: {
+        kind: 'prop' as const,
+        obj: {
+          kind: 'var' as const,
+          name: 'ctx',
+          path: [] as const,
+        },
+        prop: 'status',
+      },
+      right: { kind: 'literal' as const, value: 'REFUTED' },
+    };
+
+    expect(selectLogic([stringExpr])).toBe('QF_SLIA');
+  });
+
+  test('declares membership predicates for quantified domains', () => {
+    const quantified = {
+      kind: 'forall' as const,
+      varName: 's',
+      domain: {
+        kind: 'prop' as const,
+        obj: {
+          kind: 'var' as const,
+          name: '__param0__',
+          path: ['input'] as const,
+        },
+        prop: 'specs',
+      },
+      body: {
+        kind: 'binop' as const,
+        op: '>' as const,
+        left: {
+          kind: 'length' as const,
+          obj: {
+            kind: 'prop' as const,
+            obj: {
+              kind: 'var' as const,
+              name: 's',
+              path: [] as const,
+            },
+            prop: 'id',
+          },
+        },
+        right: { kind: 'literal' as const, value: 0 },
+      },
+    };
+
+    const vars = collectVariables(quantified);
+    const prelude = buildPrelude(vars, [quantified]).join('\n');
+
+    expect(prelude).toContain(
+      '(declare-fun member_of___param0___input_specs (Int) Bool)'
+    );
+  });
+
+  test('encodes collection includes via membership predicates', () => {
+    const expr = {
+      kind: 'call' as const,
+      callee: 'Collection.includes',
+      args: [
+        {
+          kind: 'var' as const,
+          name: 'items',
+          path: [] as const,
+        },
+        { kind: 'literal' as const, value: 'Q' },
+      ],
+    };
+
+    expect(encodeExpr(expr)).toBe('(member_of_items_String "Q")');
+
+    const prelude = buildPrelude([], [expr]).join('\n');
+    expect(prelude).toContain(
+      '(declare-fun member_of_items_String (String) Bool)'
+    );
+  });
+
+  test('encodes startsWith as SMT string prefix', () => {
+    const expr = {
+      kind: 'call' as const,
+      callee: 'String.startsWith',
+      args: [
+        {
+          kind: 'prop' as const,
+          obj: {
+            kind: 'var' as const,
+            name: 'o',
+            path: [] as const,
+          },
+          prop: 'id',
+        },
+        {
+          kind: 'var' as const,
+          name: 'specId',
+          path: [] as const,
+        },
+      ],
+    };
+
+    expect(encodeExpr(expr)).toBe('(str.prefixof specId o_id)');
+    expect(selectLogic([expr])).toBe('QF_SLIA');
   });
 });

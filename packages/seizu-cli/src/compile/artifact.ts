@@ -2,7 +2,13 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { SmtResult } from 'seizu/smt';
 import type { AnySpec, ObligationRecord } from 'seizu/spec';
+import { specRefId, specRefMode } from 'seizu/spec';
 import type { ResolvedTarget } from './resolver';
+
+export interface SerializedSpecDependency {
+  readonly id: string;
+  readonly mode: 'axiom' | 'trace';
+}
 
 export interface Diagnostic {
   readonly level: 'error' | 'warning' | 'info';
@@ -14,7 +20,7 @@ export interface SerializedSpec {
   readonly id: string;
   readonly kind: string;
   readonly name: string;
-  readonly dependsOn: readonly string[];
+  readonly dependsOn: readonly SerializedSpecDependency[];
 }
 
 export interface GraphArtifact {
@@ -49,9 +55,10 @@ export function serializeSpec(spec: AnySpec): SerializedSpec {
     id: spec.id,
     kind: spec.kind,
     name: spec.name,
-    dependsOn: spec.dependsOn.map((dep) =>
-      typeof dep === 'string' ? dep : dep
-    ),
+    dependsOn: spec.dependsOn.map((dep) => ({
+      id: specRefId(dep),
+      mode: specRefMode(dep),
+    })),
   };
 }
 

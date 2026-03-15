@@ -1,11 +1,11 @@
+import { specRefId, specRefMode } from '../spec/clauses';
 import type { RefinementGraph } from '../spec/graph';
 import type { AnySpec, LawSpec, UsecaseSpec } from '../spec/specs';
 import {
+  buildPrelude,
   buildSmtLib,
   collectVariables,
   encodeExpr,
-  hasQuantifiers,
-  hasStrings,
 } from './encoder';
 import { extractPredicateIR } from './extractor';
 import type { SmtExpr, SmtResult } from './ir';
@@ -58,6 +58,31 @@ function resolvePredicateIR(
   return extractPredicateIR(predicate);
 }
 
+function collectVariableNames(exprs: readonly SmtExpr[]): ReadonlySet<string> {
+  const names = new Set<string>();
+
+  for (const expr of exprs) {
+    for (const variable of collectVariables(expr)) {
+      names.add(variable.name);
+    }
+  }
+
+  return names;
+}
+
+function hasSharedVariables(
+  left: ReadonlySet<string>,
+  right: ReadonlySet<string>
+): boolean {
+  for (const name of left) {
+    if (right.has(name)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 /**
  * Prove individual spec properties.
  */
@@ -83,7 +108,8 @@ async function proveSpec(
       }
       // 3. Assume-Guarantee: for each dependency, prove refinement
       for (const depRef of spec.dependsOn) {
-        const depSpec = graph.get(depRef);
+        if (specRefMode(depRef) !== 'axiom') continue;
+        const depSpec = graph.get(specRefId(depRef));
         if (depSpec) {
           results.push(
             await proveRefinement(spec, depSpec, solver, predicateIRs)
@@ -153,14 +179,7 @@ async function proveLawSoundness(
   //
   // For soundness check, we want: conjunction is satisfiable.
   // We can directly build SMT-LIB with assertions (no negation).
-  const needsQuant = lawExprs.some((e) => hasQuantifiers(e));
-  const lines: string[] = [];
-  lines.push(needsQuant ? '(set-logic LIA)' : '(set-logic QF_LIA)');
-  lines.push('');
-  for (const v of allVars) {
-    lines.push(`(declare-const ${v.name} ${v.sort})`);
-  }
-  lines.push('');
+  const lines = [...buildPrelude(allVars, lawExprs)];
 
   // Assert all laws
   for (const lawExpr of lawExprs) {
@@ -269,14 +288,7 @@ async function proveSpecConsistency(
 
   // Check satisfiability: assert conjunction, check-sat
   // sat = consistent (PROVED), unsat = inconsistent (REFUTED)
-  const needsQuant = allExprs.some((e) => hasQuantifiers(e));
-  const lines: string[] = [];
-  lines.push(needsQuant ? '(set-logic LIA)' : '(set-logic QF_LIA)');
-  lines.push('');
-  for (const v of allVars) {
-    lines.push(`(declare-const ${v.name} ${v.sort})`);
-  }
-  lines.push('');
+  const lines = [...buildPrelude(allVars, allExprs)];
 
   for (const expr of allExprs) {
     try {
@@ -384,22 +396,7 @@ async function proveErrorCompleteness(
       // For mutual exclusion we want (e_i ∧ e_j) to be unsat.
       // Direct approach: assert (e_i ∧ e_j) and check-sat.
       // sat → overlap exists (REFUTED), unsat → mutually exclusive (PROVED)
-      const pairNeedsQuant = hasQuantifiers(pair);
-      const pairNeedsStrings = hasStrings(pair);
-      const pairLogic = pairNeedsStrings
-        ? pairNeedsQuant
-          ? 'ALL'
-          : 'QF_SLIA'
-        : pairNeedsQuant
-          ? 'LIA'
-          : 'QF_LIA';
-      const lines: string[] = [];
-      lines.push(`(set-logic ${pairLogic})`);
-      lines.push('');
-      for (const v of vars) {
-        lines.push(`(declare-const ${v.name} ${v.sort})`);
-      }
-      lines.push('');
+      const lines = [...buildPrelude(vars, [pair])];
 
       try {
         lines.push(`(assert ${encodeExpr(pair)})`);
@@ -514,6 +511,8 @@ async function proveRefinement(
     }
     preconditions.push(ir);
   }
+  const axiomVariableNames = collectVariableNames(axioms);
+  const preconditionVariableNames = collectVariableNames(preconditions);
 
   // Prove each ensure clause
   const ensureResults: SmtResult[] = [];
@@ -524,6 +523,24 @@ async function proveRefinement(
         obligationId: `${obligationId}/${clause.id}`,
         status: 'UNKNOWN',
         reason: `Cannot parse ensure predicate: ${goal.reason}`,
+      });
+      continue;
+    }
+
+    const goalVariableNames = collectVariableNames([goal]);
+    const localContextVariableNames = new Set<string>([
+      ...preconditionVariableNames,
+      ...goalVariableNames,
+    ]);
+    if (
+      axiomVariableNames.size > 0 &&
+      !hasSharedVariables(axiomVariableNames, localContextVariableNames)
+    ) {
+      ensureResults.push({
+        obligationId: `${obligationId}/${clause.id}`,
+        status: 'UNKNOWN' as const,
+        reason:
+          'Refinement is under-specified: dependency axioms and target clauses do not share symbolic state',
       });
       continue;
     }

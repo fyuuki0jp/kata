@@ -258,6 +258,38 @@ export function tsExpressionToSmtExpr(
         }
       }
 
+      if (methodName === 'includes' && node.arguments.length === 1) {
+        return {
+          kind: 'call',
+          callee: 'Collection.includes',
+          args: [
+            tsExpressionToSmtExpr(obj, paramMap, sourceFile),
+            tsExpressionToSmtExpr(node.arguments[0], paramMap, sourceFile),
+          ],
+        };
+      }
+
+      if (methodName === 'startsWith' && node.arguments.length === 1) {
+        return {
+          kind: 'call',
+          callee: 'String.startsWith',
+          args: [
+            tsExpressionToSmtExpr(obj, paramMap, sourceFile),
+            tsExpressionToSmtExpr(node.arguments[0], paramMap, sourceFile),
+          ],
+        };
+      }
+
+      if (methodName === 'get' && node.arguments.length === 1) {
+        return {
+          kind: 'call',
+          callee: node.expression.getText(sourceFile),
+          args: node.arguments.map((arg) =>
+            tsExpressionToSmtExpr(arg, paramMap, sourceFile)
+          ),
+        };
+      }
+
       return {
         kind: 'unsupported',
         reason: `Method call .${methodName}() not supported in SMT encoding`,

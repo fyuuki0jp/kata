@@ -1,6 +1,6 @@
 {
   "artifactVersion": "3.0",
-  "artifactDigest": "b284e950cc3ac94e4cc1a97d21717b405bd644af04d8916c6e1d011feefef0db",
+  "artifactDigest": "d93e6a82be5811cd174684000d84d1cc7d546f97951e4bc8ee4de9a662fd9075",
   "specs": [
     {
       "id": "LAW-GraphTopologicalSort",
@@ -30,7 +30,12 @@
       "id": "LAW-PropagationDepInvalid",
       "kind": "law",
       "name": "REFUTED dependency propagates as invalid to parent",
-      "dependsOn": ["LAW-PropagationPriority"]
+      "dependsOn": [
+        {
+          "id": "LAW-PropagationPriority",
+          "mode": "axiom"
+        }
+      ]
     },
     {
       "id": "LAW-ObligationIdFormat",
@@ -49,10 +54,22 @@
       "kind": "usecase",
       "name": "Spec graph validation and obligation generation",
       "dependsOn": [
-        "LAW-GraphTopologicalSort",
-        "LAW-GraphCycleDetection",
-        "LAW-ObligationIdFormat",
-        "LAW-ObligationCount"
+        {
+          "id": "LAW-GraphTopologicalSort",
+          "mode": "trace"
+        },
+        {
+          "id": "LAW-GraphCycleDetection",
+          "mode": "trace"
+        },
+        {
+          "id": "LAW-ObligationIdFormat",
+          "mode": "trace"
+        },
+        {
+          "id": "LAW-ObligationCount",
+          "mode": "trace"
+        }
       ]
     },
     {
@@ -60,10 +77,22 @@
       "kind": "requirement",
       "name": "seizu core logic correctness",
       "dependsOn": [
-        "UC-GraphValidation",
-        "LAW-PropagationPriority",
-        "LAW-PropagationDepInvalid",
-        "LAW-GraphDependencySymmetry"
+        {
+          "id": "UC-GraphValidation",
+          "mode": "axiom"
+        },
+        {
+          "id": "LAW-PropagationPriority",
+          "mode": "axiom"
+        },
+        {
+          "id": "LAW-PropagationDepInvalid",
+          "mode": "axiom"
+        },
+        {
+          "id": "LAW-GraphDependencySymmetry",
+          "mode": "axiom"
+        }
       ]
     }
   ],
@@ -130,7 +159,7 @@
       "kind": "smt",
       "clauseId": "consistency",
       "description": "Law clauses are mutually consistent",
-      "status": "UNKNOWN"
+      "status": "PROVED"
     },
     {
       "id": "LAW-PropagationPriority:law:refuted-highest",
@@ -154,7 +183,7 @@
       "kind": "smt",
       "clauseId": "consistency",
       "description": "Law clauses are mutually consistent",
-      "status": "UNKNOWN"
+      "status": "PROVED"
     },
     {
       "id": "LAW-PropagationDepInvalid:law:dep-refuted-invalidates-parent",
@@ -170,7 +199,7 @@
       "kind": "smt",
       "clauseId": "consistency",
       "description": "Law clauses are mutually consistent",
-      "status": "UNKNOWN"
+      "status": "PROVED"
     },
     {
       "id": "LAW-ObligationIdFormat:law:id-contains-spec-id",
@@ -194,7 +223,7 @@
       "kind": "smt",
       "clauseId": "consistency",
       "description": "Law clauses are mutually consistent",
-      "status": "UNKNOWN"
+      "status": "PROVED"
     },
     {
       "id": "LAW-ObligationCount:law:law-spec-obligation-count",
@@ -282,7 +311,7 @@
       "kind": "smt",
       "clauseId": "consistency",
       "description": "Spec clauses are mutually consistent",
-      "status": "UNKNOWN"
+      "status": "PROVED"
     },
     {
       "id": "UC-GraphValidation:smt:error_completeness",
@@ -291,38 +320,6 @@
       "clauseId": "error_completeness",
       "description": "Error conditions are mutually exclusive",
       "status": "PROVED"
-    },
-    {
-      "id": "UC-GraphValidation:smt:refinement:LAW-GraphTopologicalSort",
-      "specId": "UC-GraphValidation",
-      "kind": "smt",
-      "clauseId": "refinement:LAW-GraphTopologicalSort",
-      "description": "Refinement from \"LAW-GraphTopologicalSort\" is valid",
-      "status": "UNKNOWN"
-    },
-    {
-      "id": "UC-GraphValidation:smt:refinement:LAW-GraphCycleDetection",
-      "specId": "UC-GraphValidation",
-      "kind": "smt",
-      "clauseId": "refinement:LAW-GraphCycleDetection",
-      "description": "Refinement from \"LAW-GraphCycleDetection\" is valid",
-      "status": "UNKNOWN"
-    },
-    {
-      "id": "UC-GraphValidation:smt:refinement:LAW-ObligationIdFormat",
-      "specId": "UC-GraphValidation",
-      "kind": "smt",
-      "clauseId": "refinement:LAW-ObligationIdFormat",
-      "description": "Refinement from \"LAW-ObligationIdFormat\" is valid",
-      "status": "UNKNOWN"
-    },
-    {
-      "id": "UC-GraphValidation:smt:refinement:LAW-ObligationCount",
-      "specId": "UC-GraphValidation",
-      "kind": "smt",
-      "clauseId": "refinement:LAW-ObligationCount",
-      "description": "Refinement from \"LAW-ObligationCount\" is valid",
-      "status": "UNKNOWN"
     },
     {
       "id": "REQ-SeizuCorrectness:dep:UC-GraphValidation",
@@ -419,24 +416,41 @@
     },
     {
       "obligationId": "LAW-GraphDependencySymmetry:smt:consistency",
-      "status": "UNKNOWN",
-      "reason": "Failed to encode law: Method call .includes() not supported in SMT encoding"
+      "status": "PROVED",
+      "encoding": "(set-logic QF_SLIA)\n\n(declare-const pDeps Int)\n(declare-const qDependants Int)\n(declare-fun member_of_pDeps_String (String) Bool)\n(declare-fun member_of_qDependants_String (String) Bool)\n\n(assert (and (member_of_pDeps_String \"Q\") (member_of_qDependants_String \"P\")))\n\n(check-sat)",
+      "counterexample": {},
+      "reason": "Laws are consistent"
     },
     {
       "obligationId": "LAW-PropagationPriority:smt:consistency",
-      "status": "UNKNOWN",
-      "encoding": "(set-logic QF_LIA)\n\n(declare-const _unknown__status String)\n\n(assert (= _unknown__status \"refuted\"))\n(assert (= _unknown__status \"valid\"))\n\n(check-sat)",
-      "reason": "Z3 error: (error \"line 3 column 32: Invalid constant declaration: unknown sort 'String'\")\n(error \"line 5 column 11: unknown constant _unknown__status\")\n(error \"line 6 column 11: unknown constant _unknown__status\")\n"
+      "status": "PROVED",
+      "encoding": "(set-logic QF_SLIA)\n\n(declare-const evidence_get_LEAF_status String)\n(declare-const evidence_get_X_status String)\n\n(assert (= evidence_get_LEAF_status \"refuted\"))\n(assert (= evidence_get_X_status \"valid\"))\n\n(check-sat)",
+      "counterexample": {
+        "evidence_get_X_status": "\"valid\"",
+        "evidence_get_LEAF_status": "\"refuted\""
+      },
+      "reason": "Laws are consistent"
     },
     {
       "obligationId": "LAW-PropagationDepInvalid:smt:consistency",
-      "status": "UNKNOWN",
-      "reason": "Failed to encode law: Method call .includes() not supported in SMT encoding"
+      "status": "PROVED",
+      "encoding": "(set-logic QF_SLIA)\n\n(declare-const childStatus String)\n(declare-const parentStatus String)\n(declare-const parentInvalidDeps Int)\n(declare-fun member_of_parentInvalidDeps_String (String) Bool)\n\n(assert (and (and (= childStatus \"refuted\") (= parentStatus \"invalid\")) (member_of_parentInvalidDeps_String \"CHILD\")))\n\n(check-sat)",
+      "counterexample": {
+        "childStatus": "\"refuted\"",
+        "parentStatus": "\"invalid\""
+      },
+      "reason": "Laws are consistent"
     },
     {
       "obligationId": "LAW-ObligationIdFormat:smt:consistency",
-      "status": "UNKNOWN",
-      "reason": "Failed to encode law: Method call .startsWith() not supported in SMT encoding"
+      "status": "PROVED",
+      "encoding": "(set-logic ALL)\n\n(declare-const obligations Int)\n(declare-const o_id String)\n(declare-const specId String)\n(declare-const _unknown__length Int)\n(declare-fun member_of_obligations (Int) Bool)\n\n(assert (forall ((o Int)) (=> (member_of_obligations o) (str.prefixof specId o_id))))\n(assert (forall ((o Int)) (=> (member_of_obligations o) (>= _unknown__length 3))))\n\n(check-sat)",
+      "counterexample": {
+        "_unknown__length": "2",
+        "specId": "\"\"",
+        "o_id": "\"\""
+      },
+      "reason": "Laws are consistent"
     },
     {
       "obligationId": "LAW-ObligationCount:smt:consistency",
@@ -450,37 +464,22 @@
     },
     {
       "obligationId": "UC-GraphValidation:smt:consistency",
-      "status": "UNKNOWN",
-      "encoding": "(set-logic LIA)\n\n(declare-const __param0___input_specs_length Int)\n(declare-const __param0___input_specs Int)\n(declare-const s_id_length Int)\n(declare-const __param0___result_ok Bool)\n(declare-const __param0___result_value_specCount Int)\n(declare-const __param0___result_value_obligationCount Int)\n(declare-const __param0___result_value_valid Bool)\n\n(assert (> __param0___input_specs_length 0))\n(assert (forall ((s Int)) (=> (member_of___param0___input_specs s) (> s_id_length 0))))\n(assert (ite __param0___result_ok (= __param0___result_value_specCount __param0___input_specs_length) true))\n(assert (ite __param0___result_ok (>= __param0___result_value_obligationCount __param0___input_specs_length) true))\n(assert (ite __param0___result_ok (= __param0___result_value_valid true) true))\n\n(check-sat)",
-      "reason": "Z3 error: (error \"line 12 column 65: unknown constant member_of___param0___input_specs (Int) \")\n"
+      "status": "PROVED",
+      "encoding": "(set-logic LIA)\n\n(declare-const __param0___input_specs_length Int)\n(declare-const __param0___input_specs Int)\n(declare-const s_id_length Int)\n(declare-const __param0___result_ok Bool)\n(declare-const __param0___result_value_specCount Int)\n(declare-const __param0___result_value_obligationCount Int)\n(declare-const __param0___result_value_valid Bool)\n(declare-fun member_of___param0___input_specs (Int) Bool)\n\n(assert (> __param0___input_specs_length 0))\n(assert (forall ((s Int)) (=> (member_of___param0___input_specs s) (> s_id_length 0))))\n(assert (ite __param0___result_ok (= __param0___result_value_specCount __param0___input_specs_length) true))\n(assert (ite __param0___result_ok (>= __param0___result_value_obligationCount __param0___input_specs_length) true))\n(assert (ite __param0___result_ok (= __param0___result_value_valid true) true))\n\n(check-sat)",
+      "counterexample": {
+        "__param0___result_value_obligationCount": "1",
+        "s_id_length": "1",
+        "__param0___input_specs_length": "1",
+        "__param0___result_value_valid": "true",
+        "__param0___result_ok": "true",
+        "__param0___result_value_specCount": "1"
+      },
+      "reason": "Spec is consistent"
     },
     {
       "obligationId": "UC-GraphValidation:smt:error_completeness",
       "status": "PROVED",
       "reason": "All error predicates are mutually exclusive"
-    },
-    {
-      "obligationId": "UC-GraphValidation:smt:refinement:LAW-GraphTopologicalSort",
-      "status": "UNKNOWN",
-      "encoding": "(set-logic LIA)\n\n(declare-const indexA Int)\n(declare-const indexB Int)\n(declare-const indexC Int)\n(declare-const __param0___input_specs_length Int)\n(declare-const __param0___input_specs Int)\n(declare-const s_id_length Int)\n(declare-const __param0___result_ok Bool)\n(declare-const __param0___result_value_specCount Int)\n\n(assert (and (< indexA indexB) (< indexB indexC)))\n(assert (> __param0___input_specs_length 0))\n(assert (forall ((s Int)) (=> (member_of___param0___input_specs s) (> s_id_length 0))))\n\n(assert (not (ite __param0___result_ok (= __param0___result_value_specCount __param0___input_specs_length) true)))\n\n(check-sat)",
-      "reason": "Z3 error: (error \"line 14 column 65: unknown constant member_of___param0___input_specs (Int) \")\n"
-    },
-    {
-      "obligationId": "UC-GraphValidation:smt:refinement:LAW-GraphCycleDetection",
-      "status": "UNKNOWN",
-      "encoding": "(set-logic LIA)\n\n(declare-const const Int)\n(declare-const result_ok Bool)\n(declare-const __param0___input_specs_length Int)\n(declare-const __param0___input_specs Int)\n(declare-const s_id_length Int)\n(declare-const __param0___result_ok Bool)\n(declare-const __param0___result_value_specCount Int)\n\n(assert const)\n(assert (not result_ok))\n(assert (not result_ok))\n(assert (> __param0___input_specs_length 0))\n(assert (forall ((s Int)) (=> (member_of___param0___input_specs s) (> s_id_length 0))))\n\n(assert (not (ite __param0___result_ok (= __param0___result_value_specCount __param0___input_specs_length) true)))\n\n(check-sat)",
-      "reason": "Z3 error: (error \"line 11 column 13: invalid assert command, term is not Boolean\")\n(error \"line 15 column 65: unknown constant member_of___param0___input_specs (Int) \")\n"
-    },
-    {
-      "obligationId": "UC-GraphValidation:smt:refinement:LAW-ObligationIdFormat",
-      "status": "UNKNOWN",
-      "reason": "SMT encoding failed: Method call .startsWith() not supported in SMT encoding"
-    },
-    {
-      "obligationId": "UC-GraphValidation:smt:refinement:LAW-ObligationCount",
-      "status": "UNKNOWN",
-      "encoding": "(set-logic LIA)\n\n(declare-const obligations_length Int)\n(declare-const n Int)\n(declare-const __param0___input_specs_length Int)\n(declare-const __param0___input_specs Int)\n(declare-const s_id_length Int)\n(declare-const __param0___result_ok Bool)\n(declare-const __param0___result_value_specCount Int)\n\n(assert (= obligations_length (+ n 1)))\n(assert (> __param0___input_specs_length 0))\n(assert (forall ((s Int)) (=> (member_of___param0___input_specs s) (> s_id_length 0))))\n\n(assert (not (ite __param0___result_ok (= __param0___result_value_specCount __param0___input_specs_length) true)))\n\n(check-sat)",
-      "reason": "Z3 error: (error \"line 13 column 65: unknown constant member_of___param0___input_specs (Int) \")\n"
     }
   ],
   "diagnostics": []

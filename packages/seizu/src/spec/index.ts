@@ -16,10 +16,21 @@ export type {
   InvariantClause,
   LawClause,
   ObservedEffects,
+  SpecDependency,
+  SpecDependencyMode,
   SpecRef,
   TransitionContext,
 } from './clauses';
-export { effect, ensure, errorClause, given, invariant, law } from './clauses';
+export {
+  effect,
+  ensure,
+  errorClause,
+  given,
+  invariant,
+  law,
+  specRefId,
+  specRefMode,
+} from './clauses';
 export { CycleError, GraphValidationError, RefinementGraph } from './graph';
 export type { EffectEvidence, ExecutionHarness } from './harness';
 export type { ObligationRecord } from './obligations';

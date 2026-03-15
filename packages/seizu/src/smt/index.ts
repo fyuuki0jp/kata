@@ -1,9 +1,11 @@
 export {
+  buildPrelude,
   buildSmtLib,
   collectVariables,
   encodeExpr,
   flattenPropAccess,
   hasQuantifiers,
+  selectLogic,
 } from './encoder';
 export { extractPredicateIR } from './extractor';
 export type {

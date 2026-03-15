@@ -378,14 +378,13 @@ async function runSpecVerify(options: {
   const graph = new RefinementGraph();
   // Add minimal spec nodes for propagation
   for (const spec of graphArtifact.specs) {
-    const deps = graphArtifact.edges
-      .filter((e) => e.from === spec.id)
-      .map((e) => e.to);
     graph.add({
       kind: spec.kind as 'requirement' | 'usecase' | 'law',
       id: spec.id,
       name: spec.name,
-      dependsOn: deps,
+      dependsOn: spec.dependsOn.map((dep) =>
+        dep.mode === 'trace' ? { id: dep.id, mode: 'trace' } : dep.id
+      ),
     } as Parameters<typeof graph.add>[0]);
   }
 
@@ -427,7 +426,58 @@ async function runSpecVerify(options: {
   const propagated = propagateEvidence(graph, propagationInput);
 
   // 7. Report results — show ALL specs (including requirements)
-  reportSpecResults(graphArtifact, mergedResults, propagationInput, propagated);
+  reportSpecResults(
+    graphArtifact,
+    mergedResults,
+    resolveDependencyObligations(graphArtifact, propagationInput, propagated),
+    propagated
+  );
+}
+
+function resolveDependencyObligations(
+  graphArtifact: GraphArtifact,
+  propagationInput: ReadonlyMap<string, PropagationSpecVerifyResult>,
+  propagated: ReadonlyMap<
+    string,
+    { specId: string; status: string; invalidDeps: readonly string[] }
+  >
+): ReadonlyMap<string, PropagationSpecVerifyResult> {
+  const obligationMap = new Map(
+    (graphArtifact.obligations ?? []).map((obligation) => [
+      obligation.id,
+      obligation,
+    ])
+  );
+  const resolved = new Map<string, PropagationSpecVerifyResult>();
+
+  for (const [specId, result] of propagationInput) {
+    resolved.set(specId, {
+      ...result,
+      obligations: result.obligations.map((obligation) => {
+        const artifactObligation = obligationMap.get(obligation.obligationId);
+        if (artifactObligation?.kind !== 'dep') {
+          return obligation;
+        }
+
+        const depEvidence = propagated.get(artifactObligation.clauseId);
+        if (!depEvidence) {
+          return { ...obligation, status: 'UNKNOWN' };
+        }
+
+        switch (depEvidence.status) {
+          case 'valid':
+          case 'assumed':
+            return { ...obligation, status: 'PROVED' };
+          case 'unknown':
+            return { ...obligation, status: 'UNKNOWN' };
+          default:
+            return { ...obligation, status: 'REFUTED' };
+        }
+      }),
+    });
+  }
+
+  return resolved;
 }
 
 function reportSpecResults(

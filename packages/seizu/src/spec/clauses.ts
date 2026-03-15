@@ -1,7 +1,22 @@
 import type { Result } from '../result';
 
-// SpecRef = plain string (依存関係の参照)
-export type SpecRef = string;
+export type SpecDependencyMode = 'axiom' | 'trace';
+
+export interface SpecDependency {
+  readonly id: string;
+  readonly mode?: SpecDependencyMode;
+}
+
+// SpecRef = plain string or structured dependency reference
+export type SpecRef = string | SpecDependency;
+
+export function specRefId(ref: SpecRef): string {
+  return typeof ref === 'string' ? ref : ref.id;
+}
+
+export function specRefMode(ref: SpecRef): SpecDependencyMode {
+  return typeof ref === 'string' ? 'axiom' : (ref.mode ?? 'axiom');
+}
 
 // コンテキスト型
 export interface GivenContext<I, S> {

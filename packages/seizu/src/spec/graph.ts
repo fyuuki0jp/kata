@@ -1,5 +1,6 @@
 import type { Result } from '../result';
 import { err, ok } from '../result';
+import { specRefId } from './clauses';
 import type { AnySpec } from './specs';
 
 export class CycleError extends Error {
@@ -26,7 +27,7 @@ export class RefinementGraph {
       this.edges.set(spec.id, new Set());
     }
     for (const dep of spec.dependsOn) {
-      this.edges.get(spec.id)?.add(dep);
+      this.edges.get(spec.id)?.add(specRefId(dep));
     }
   }
 

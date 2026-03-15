@@ -1,4 +1,5 @@
 import type { ObligationStatus } from './base';
+import { specRefId, specRefMode } from './clauses';
 import type { RefinementGraph } from './graph';
 
 export type PropagationStatus =
@@ -34,7 +35,12 @@ export function propagateEvidence(
   // Process in reverse topological order (leaves first)
   for (const specId of [...sorted].reverse()) {
     const result = results.get(specId);
-    const deps = graph.dependencies(specId);
+    const spec = graph.get(specId);
+    const deps = spec
+      ? spec.dependsOn
+          .filter((dep) => specRefMode(dep) === 'axiom')
+          .map((dep) => specRefId(dep))
+      : graph.dependencies(specId);
 
     // Determine own status from obligations
     let ownStatus: PropagationStatus = 'valid';

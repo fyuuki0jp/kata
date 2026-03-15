@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import type { CAC } from 'cac';
 import type { SmtExpr } from 'seizu/smt';
 import { createSolver, proveGraph } from 'seizu/smt';
-import { generateObligations, RefinementGraph } from 'seizu/spec';
+import { generateObligations, RefinementGraph, specRefId } from 'seizu/spec';
 import { serializeSpec, writeArtifacts } from '../compile/artifact';
 import { extractPredicatesFromSource } from '../compile/ast-extractor';
 import { computeDigest } from '../compile/digest';
@@ -130,7 +130,10 @@ export function registerCompileCommand(cli: CAC): void {
             specs: discovered.map((d) => serializeSpec(d.spec)),
             obligations: resolvedObligations,
             edges: discovered.flatMap((d) =>
-              d.spec.dependsOn.map((dep) => ({ from: d.spec.id, to: dep }))
+              d.spec.dependsOn.map((dep) => ({
+                from: d.spec.id,
+                to: specRefId(dep),
+              }))
             ),
             smtResults,
             diagnostics: [],
