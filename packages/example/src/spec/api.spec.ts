@@ -1,5 +1,6 @@
 import * as fc from 'fast-check';
 import {
+  effect,
   ensure,
   errorClause,
   given,
@@ -8,13 +9,26 @@ import {
   usecaseSpec,
 } from 'seizu/spec';
 import type {
+  Transfer,
   TransferError,
   TransferInput,
   TransferOutput,
-  TransferState,
 } from '../domain/types';
 import { createDatabase } from '../infra/db';
 import { AccountRepository, TransferRepository } from '../infra/repository';
+
+interface TransferServiceState {
+  readonly fromBalance: number;
+  readonly toBalance: number;
+  readonly totalBalance: number;
+  readonly transferCount: number;
+}
+
+interface TransferObservation {
+  readonly dbDiff?: {
+    readonly latestTransfer?: Transfer;
+  };
+}
 
 // ---- InputArbitrary for PBT ----
 export const inputArbitrary = fc.oneof(
@@ -84,15 +98,32 @@ export async function setup() {
   };
 }
 
-export async function snapshot(deps: { accountRepo: AccountRepository }) {
+export async function snapshot(deps: {
+  accountRepo: AccountRepository;
+  transferRepo: TransferRepository;
+}) {
   const accounts = deps.accountRepo.findAll();
   const alice = accounts.find((a) => a.id === 'alice');
   const bob = accounts.find((a) => a.id === 'bob');
+  const transfers = deps.transferRepo.findAll();
   return {
     fromBalance: alice?.balance ?? 0,
     toBalance: bob?.balance ?? 0,
     totalBalance: (alice?.balance ?? 0) + (bob?.balance ?? 0),
-  } satisfies TransferState;
+    transferCount: transfers.length,
+  } satisfies TransferServiceState;
+}
+
+export async function observe({
+  deps,
+}: {
+  deps: { transferRepo: TransferRepository };
+}): Promise<TransferObservation> {
+  return {
+    dbDiff: {
+      latestTransfer: deps.transferRepo.findAll()[0],
+    },
+  };
 }
 
 // ---- UsecaseSpec: createTransfer ----
@@ -100,27 +131,27 @@ export const createTransferUsecase = usecaseSpec<
   TransferInput,
   TransferOutput,
   TransferError,
-  TransferState
+  TransferServiceState
 >({
   id: 'UC-CreateTransfer',
   name: '送金API',
   target: { module: 'src/api/transfers', export: 'createTransfer' },
   classifyError: (error: TransferError) => error.type,
   given: [
-    given<TransferInput, TransferState>(
+    given<TransferInput, TransferServiceState>(
       'non-empty-ids',
       '口座IDが空でない',
       ({ input }) => input.fromId.length > 0 && input.toId.length > 0
     ),
   ],
   ensures: [
-    ensure<TransferInput, TransferOutput, TransferError, TransferState>(
+    ensure<TransferInput, TransferOutput, TransferError, TransferServiceState>(
       'balance-preserved',
       '成功時に合計残高が保存される',
       ({ before, after, result }) =>
         result.ok ? before.totalBalance === after.totalBalance : true
     ),
-    ensure<TransferInput, TransferOutput, TransferError, TransferState>(
+    ensure<TransferInput, TransferOutput, TransferError, TransferServiceState>(
       'from-debited',
       '成功時に送金元から引き落とされる',
       ({ before, after, input, result }) =>
@@ -128,42 +159,69 @@ export const createTransferUsecase = usecaseSpec<
           ? after.fromBalance === before.fromBalance - input.amount
           : true
     ),
+    ensure<TransferInput, TransferOutput, TransferError, TransferServiceState>(
+      'to-credited',
+      '成功時に送金先へ入金される',
+      ({ before, after, input, result }) =>
+        result.ok ? after.toBalance === before.toBalance + input.amount : true
+    ),
   ],
   invariants: [
-    invariant<TransferInput, TransferOutput, TransferError, TransferState>(
-      'non-negative-balance',
-      '成功時に残高が非負',
-      ({ after, result }) =>
-        result.ok ? after.fromBalance >= 0 && after.toBalance >= 0 : true
+    invariant<
+      TransferInput,
+      TransferOutput,
+      TransferError,
+      TransferServiceState
+    >('non-negative-balance', '成功時に残高が非負', ({ after, result }) =>
+      result.ok ? after.fromBalance >= 0 && after.toBalance >= 0 : true
     ),
   ],
   errors: [
-    errorClause<TransferInput, TransferError, TransferState>(
+    errorClause<TransferInput, TransferError, TransferServiceState>(
       'err-funds',
       'insufficient_funds',
       '残高不足',
       ({ error }) => error.type === 'insufficient_funds'
     ),
-    errorClause<TransferInput, TransferError, TransferState>(
+    errorClause<TransferInput, TransferError, TransferServiceState>(
       'err-same',
       'same_account',
       '同一口座',
       ({ error }) => error.type === 'same_account'
     ),
-    errorClause<TransferInput, TransferError, TransferState>(
+    errorClause<TransferInput, TransferError, TransferServiceState>(
       'err-not-found',
       'account_not_found',
       '口座が見つからない',
       ({ error }) => error.type === 'account_not_found'
     ),
-    errorClause<TransferInput, TransferError, TransferState>(
+    errorClause<TransferInput, TransferError, TransferServiceState>(
       'err-amount',
       'invalid_amount',
       '不正な金額',
       ({ error }) => error.type === 'invalid_amount'
     ),
   ],
-  effects: [],
+  effects: [
+    effect<TransferInput, TransferOutput, TransferError, TransferServiceState>(
+      'recorded',
+      'dbDiff',
+      '成功時に送金履歴が記録される',
+      (observed, { before, after, input, result }) => {
+        if (!result.ok) return true;
+
+        const latestTransfer = (observed as TransferObservation).dbDiff
+          ?.latestTransfer;
+        return (
+          after.transferCount === before.transferCount + 1 &&
+          latestTransfer?.status === 'completed' &&
+          latestTransfer.fromId === input.fromId &&
+          latestTransfer.toId === input.toId &&
+          latestTransfer.amount === input.amount
+        );
+      }
+    ),
+  ],
   dependsOn: [{ id: 'LAW-TransferConservation', mode: 'trace' }],
 });
 
@@ -195,7 +253,7 @@ export const moneyTransferRequirement = requirementSpec({
     'Alice(残高5000)がBob(残高3000)に1000円送金 → Alice(4000), Bob(4000)',
     'Alice(残高100)がBob(残高3000)に1000円送金 → 残高不足エラー',
   ],
-  dependsOn: ['UC-CreateTransfer'],
+  dependsOn: ['UC-CreateTransfer', 'UC-CreateTransferRoute'],
 });
 
 export const specs = [createTransferUsecase, moneyTransferRequirement] as const;

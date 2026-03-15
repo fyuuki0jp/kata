@@ -83,8 +83,8 @@
     "build": "tsup",
     "test": "vitest run",
     "spec:compile": "pnpm build && node --import tsx/esm ../seizu-cli/src/cli.ts compile --config seizu.config.ts",
-    "spec:verify": "pnpm run spec:compile && node --import tsx/esm ../seizu-cli/src/cli.ts verify --specs --config seizu.config.ts",
-    "spec:doc": "node --import tsx/esm ../seizu-cli/src/cli.ts doc --specs --config seizu.config.ts --stdout"
+    "spec:verify": "pnpm build && node --import tsx/esm ../seizu-cli/src/cli.ts verify --specs --config seizu.config.ts",
+    "spec:doc": "pnpm build && node --import tsx/esm ../seizu-cli/src/cli.ts doc --specs --config seizu.config.ts --stdout"
   },
   "peerDependencies": {
     "fast-check": "^3.0.0",

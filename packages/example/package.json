@@ -7,8 +7,8 @@
     "dev:api": "tsx watch src/server.ts",
     "dev:client": "vite --config vite.config.ts",
     "spec:compile": "pnpm build:seizu && node --import tsx/esm ../seizu-cli/src/cli.ts compile --config seizu.config.ts",
-    "spec:verify": "pnpm run spec:compile && node --import tsx/esm ../seizu-cli/src/cli.ts verify --specs --config seizu.config.ts",
-    "spec:doc": "node --import tsx/esm ../seizu-cli/src/cli.ts doc --specs --config seizu.config.ts --stdout",
+    "spec:verify": "pnpm build:seizu && node --import tsx/esm ../seizu-cli/src/cli.ts verify --specs --config seizu.config.ts",
+    "spec:doc": "pnpm build:seizu && node --import tsx/esm ../seizu-cli/src/cli.ts doc --specs --config seizu.config.ts --stdout",
     "build:seizu": "cd ../seizu && pnpm build"
   },
   "dependencies": {

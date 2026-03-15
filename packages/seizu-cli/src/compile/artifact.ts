@@ -68,14 +68,22 @@ export function writeArtifacts(
   manifest: ManifestArtifact
 ): void {
   mkdirSync(artifactDir, { recursive: true });
-  writeFileSync(
-    join(artifactDir, 'graph.json'),
-    JSON.stringify(graph, null, 2),
-    'utf-8'
-  );
+  writeGraphArtifact(artifactDir, graph);
   writeFileSync(
     join(artifactDir, 'manifest.json'),
     JSON.stringify(manifest, null, 2),
+    'utf-8'
+  );
+}
+
+export function writeGraphArtifact(
+  artifactDir: string,
+  graph: GraphArtifact
+): void {
+  mkdirSync(artifactDir, { recursive: true });
+  writeFileSync(
+    join(artifactDir, 'graph.json'),
+    JSON.stringify(graph, null, 2),
     'utf-8'
   );
 }

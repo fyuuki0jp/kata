@@ -106,6 +106,11 @@ export async function verifyUsecase(
     obligationResults.set(key, { obligationId: key, status: 'UNKNOWN' });
     evaluationCounts.set(key, 0);
   }
+  for (const eff of spec.effects) {
+    const key = `${spec.id}:effect:${eff.id}:${eff.facet}`;
+    obligationResults.set(key, { obligationId: key, status: 'UNKNOWN' });
+    evaluationCounts.set(key, 0);
+  }
   const noThrowKey = `${spec.id}:runtime:no_throw`;
   obligationResults.set(noThrowKey, {
     obligationId: noThrowKey,

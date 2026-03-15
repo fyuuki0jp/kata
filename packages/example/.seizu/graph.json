@@ -1,6 +1,6 @@
 {
   "artifactVersion": "3.0",
-  "artifactDigest": "6d6a03db7fe1c9ef758512dc54a64ecde8ac3dbe24313a804562aa47d1a182cf",
+  "artifactDigest": "519b876775f63cd446eaf312c05c29d2dcc6438927d2ac2ce36fef56bacc82a1",
   "specs": [
     {
       "id": "LAW-DebitNonNegative",
@@ -48,6 +48,21 @@
         {
           "id": "UC-CreateTransfer",
           "mode": "axiom"
+        },
+        {
+          "id": "UC-CreateTransferRoute",
+          "mode": "axiom"
+        }
+      ]
+    },
+    {
+      "id": "UC-CreateTransferRoute",
+      "kind": "usecase",
+      "name": "送金HTTP API契約",
+      "dependsOn": [
+        {
+          "id": "UC-CreateTransfer",
+          "mode": "trace"
         }
       ]
     }
@@ -59,7 +74,7 @@
       "kind": "law",
       "clauseId": "non-negative",
       "description": "成功時は残高 >= 0",
-      "status": "PENDING"
+      "status": "TESTED"
     },
     {
       "id": "LAW-DebitNonNegative:law:debit-amount",
@@ -67,7 +82,7 @@
       "kind": "law",
       "clauseId": "debit-amount",
       "description": "成功時は残高が正確にamount分減る",
-      "status": "PENDING"
+      "status": "TESTED"
     },
     {
       "id": "LAW-DebitNonNegative:law:insufficient-rejects",
@@ -75,7 +90,7 @@
       "kind": "law",
       "clauseId": "insufficient-rejects",
       "description": "残高不足時はエラー",
-      "status": "PENDING"
+      "status": "TESTED"
     },
     {
       "id": "LAW-DebitNonNegative:smt:consistency",
@@ -83,7 +98,7 @@
       "kind": "smt",
       "clauseId": "consistency",
       "description": "Law clauses are mutually consistent",
-      "status": "UNKNOWN"
+      "status": "PROVED"
     },
     {
       "id": "LAW-CreditAlwaysSucceeds:law:always-succeeds",
@@ -91,7 +106,7 @@
       "kind": "law",
       "clauseId": "always-succeeds",
       "description": "正の金額なら成功",
-      "status": "PENDING"
+      "status": "TESTED"
     },
     {
       "id": "LAW-CreditAlwaysSucceeds:law:credit-amount",
@@ -99,7 +114,7 @@
       "kind": "law",
       "clauseId": "credit-amount",
       "description": "成功時は残高が正確にamount分増える",
-      "status": "PENDING"
+      "status": "TESTED"
     },
     {
       "id": "LAW-CreditAlwaysSucceeds:smt:consistency",
@@ -115,7 +130,7 @@
       "kind": "law",
       "clauseId": "conserve-total",
       "description": "成功時の合計残高は不変",
-      "status": "PENDING"
+      "status": "TESTED"
     },
     {
       "id": "LAW-TransferConservation:law:from-debited",
@@ -123,7 +138,7 @@
       "kind": "law",
       "clauseId": "from-debited",
       "description": "成功時は送金元からamount引かれる",
-      "status": "PENDING"
+      "status": "TESTED"
     },
     {
       "id": "LAW-TransferConservation:law:to-credited",
@@ -131,7 +146,7 @@
       "kind": "law",
       "clauseId": "to-credited",
       "description": "成功時は送金先にamount加わる",
-      "status": "PENDING"
+      "status": "TESTED"
     },
     {
       "id": "LAW-TransferConservation:law:same-account-rejected",
@@ -139,7 +154,7 @@
       "kind": "law",
       "clauseId": "same-account-rejected",
       "description": "同一口座送金はエラー",
-      "status": "PENDING"
+      "status": "TESTED"
     },
     {
       "id": "LAW-TransferConservation:smt:consistency",
@@ -155,7 +170,7 @@
       "kind": "given",
       "clauseId": "non-empty-ids",
       "description": "口座IDが空でない",
-      "status": "PENDING"
+      "status": "TESTED"
     },
     {
       "id": "UC-CreateTransfer:ensure:balance-preserved",
@@ -163,7 +178,7 @@
       "kind": "ensure",
       "clauseId": "balance-preserved",
       "description": "成功時に合計残高が保存される",
-      "status": "PENDING"
+      "status": "TESTED"
     },
     {
       "id": "UC-CreateTransfer:ensure:from-debited",
@@ -171,7 +186,15 @@
       "kind": "ensure",
       "clauseId": "from-debited",
       "description": "成功時に送金元から引き落とされる",
-      "status": "PENDING"
+      "status": "TESTED"
+    },
+    {
+      "id": "UC-CreateTransfer:ensure:to-credited",
+      "specId": "UC-CreateTransfer",
+      "kind": "ensure",
+      "clauseId": "to-credited",
+      "description": "成功時に送金先へ入金される",
+      "status": "TESTED"
     },
     {
       "id": "UC-CreateTransfer:invariant:non-negative-balance",
@@ -179,7 +202,7 @@
       "kind": "invariant",
       "clauseId": "non-negative-balance",
       "description": "成功時に残高が非負",
-      "status": "PENDING"
+      "status": "TESTED"
     },
     {
       "id": "UC-CreateTransfer:error:err-funds",
@@ -187,7 +210,7 @@
       "kind": "error",
       "clauseId": "err-funds",
       "description": "残高不足",
-      "status": "PENDING"
+      "status": "TESTED"
     },
     {
       "id": "UC-CreateTransfer:error:err-same",
@@ -195,7 +218,7 @@
       "kind": "error",
       "clauseId": "err-same",
       "description": "同一口座",
-      "status": "PENDING"
+      "status": "TESTED"
     },
     {
       "id": "UC-CreateTransfer:error:err-not-found",
@@ -203,7 +226,7 @@
       "kind": "error",
       "clauseId": "err-not-found",
       "description": "口座が見つからない",
-      "status": "PENDING"
+      "status": "TESTED"
     },
     {
       "id": "UC-CreateTransfer:error:err-amount",
@@ -211,7 +234,15 @@
       "kind": "error",
       "clauseId": "err-amount",
       "description": "不正な金額",
-      "status": "PENDING"
+      "status": "TESTED"
+    },
+    {
+      "id": "UC-CreateTransfer:effect:recorded:dbDiff",
+      "specId": "UC-CreateTransfer",
+      "kind": "effect",
+      "clauseId": "recorded",
+      "description": "成功時に送金履歴が記録される",
+      "status": "TESTED"
     },
     {
       "id": "UC-CreateTransfer:runtime:no_throw",
@@ -219,7 +250,7 @@
       "kind": "runtime",
       "clauseId": "no_throw",
       "description": "Target function must not throw",
-      "status": "PENDING"
+      "status": "TESTED"
     },
     {
       "id": "UC-CreateTransfer:smt:consistency",
@@ -243,7 +274,79 @@
       "kind": "dep",
       "clauseId": "UC-CreateTransfer",
       "description": "Dependency \"UC-CreateTransfer\" must be valid",
-      "status": "PENDING"
+      "status": "PROVED"
+    },
+    {
+      "id": "REQ-MoneyTransfer:dep:UC-CreateTransferRoute",
+      "specId": "REQ-MoneyTransfer",
+      "kind": "dep",
+      "clauseId": "UC-CreateTransferRoute",
+      "description": "Dependency \"UC-CreateTransferRoute\" must be valid",
+      "status": "PROVED"
+    },
+    {
+      "id": "UC-CreateTransferRoute:ensure:http-created",
+      "specId": "UC-CreateTransferRoute",
+      "kind": "ensure",
+      "clauseId": "http-created",
+      "description": "成功時はHTTP 201を返す",
+      "status": "TESTED"
+    },
+    {
+      "id": "UC-CreateTransferRoute:ensure:response-shape",
+      "specId": "UC-CreateTransferRoute",
+      "kind": "ensure",
+      "clauseId": "response-shape",
+      "description": "成功時レスポンスは送金結果の形を持つ",
+      "status": "TESTED"
+    },
+    {
+      "id": "UC-CreateTransferRoute:error:err-http-400",
+      "specId": "UC-CreateTransferRoute",
+      "kind": "error",
+      "clauseId": "err-http-400",
+      "description": "不正なリクエストはHTTP 400",
+      "status": "TESTED"
+    },
+    {
+      "id": "UC-CreateTransferRoute:error:err-http-404",
+      "specId": "UC-CreateTransferRoute",
+      "kind": "error",
+      "clauseId": "err-http-404",
+      "description": "存在しない口座はHTTP 404",
+      "status": "TESTED"
+    },
+    {
+      "id": "UC-CreateTransferRoute:effect:response-matches-result:response",
+      "specId": "UC-CreateTransferRoute",
+      "kind": "effect",
+      "clauseId": "response-matches-result",
+      "description": "HTTPレスポンスが返却結果と一致する",
+      "status": "TESTED"
+    },
+    {
+      "id": "UC-CreateTransferRoute:runtime:no_throw",
+      "specId": "UC-CreateTransferRoute",
+      "kind": "runtime",
+      "clauseId": "no_throw",
+      "description": "Target function must not throw",
+      "status": "TESTED"
+    },
+    {
+      "id": "UC-CreateTransferRoute:smt:consistency",
+      "specId": "UC-CreateTransferRoute",
+      "kind": "smt",
+      "clauseId": "consistency",
+      "description": "Spec clauses are mutually consistent",
+      "status": "PROVED"
+    },
+    {
+      "id": "UC-CreateTransferRoute:smt:error_completeness",
+      "specId": "UC-CreateTransferRoute",
+      "kind": "smt",
+      "clauseId": "error_completeness",
+      "description": "Error conditions are mutually exclusive",
+      "status": "PROVED"
     }
   ],
   "edges": [
@@ -262,13 +365,28 @@
     {
       "from": "REQ-MoneyTransfer",
       "to": "UC-CreateTransfer"
+    },
+    {
+      "from": "REQ-MoneyTransfer",
+      "to": "UC-CreateTransferRoute"
+    },
+    {
+      "from": "UC-CreateTransferRoute",
+      "to": "UC-CreateTransfer"
     }
   ],
   "smtResults": [
     {
       "obligationId": "LAW-DebitNonNegative:smt:consistency",
-      "status": "UNKNOWN",
-      "reason": "Failed to encode law: Unsupported operator: QuestionQuestionToken"
+      "status": "PROVED",
+      "encoding": "(set-logic QF_LIA)\n\n(declare-const result_ok Bool)\n(declare-const result_value Int)\n(declare-const args_balance Int)\n(declare-const args_amount Int)\n\n(assert (ite result_ok (>= result_value 0) true))\n(assert (ite result_ok (= result_value (- args_balance args_amount)) true))\n(assert (ite (< args_balance args_amount) (not result_ok) true))\n\n(check-sat)",
+      "counterexample": {
+        "result_ok": "false",
+        "args_amount": "0",
+        "args_balance": "(- 2)",
+        "result_value": "(- 1)"
+      },
+      "reason": "Laws are consistent"
     },
     {
       "obligationId": "LAW-CreditAlwaysSucceeds:smt:consistency",
@@ -285,7 +403,7 @@
     {
       "obligationId": "LAW-TransferConservation:smt:consistency",
       "status": "PROVED",
-      "encoding": "(set-logic QF_LIA)\n\n(declare-const result_ok Bool)\n(declare-const result_value_totalBalance Int)\n(declare-const args_state_totalBalance Int)\n(declare-const __param0___result_ok Bool)\n(declare-const __param0___after_fromBalance Int)\n(declare-const __param0___before_fromBalance Int)\n(declare-const __param0___input_amount Int)\n(declare-const result_value_toBalance Int)\n(declare-const args_state_toBalance Int)\n(declare-const args_input_amount Int)\n(declare-const args_input_fromId Int)\n(declare-const args_input_toId Int)\n\n(assert (ite result_ok (= result_value_totalBalance args_state_totalBalance) true))\n(assert (ite __param0___result_ok (= __param0___after_fromBalance (- __param0___before_fromBalance __param0___input_amount)) true))\n(assert (ite result_ok (= result_value_toBalance (+ args_state_toBalance args_input_amount)) true))\n(assert (ite (= args_input_fromId args_input_toId) (not result_ok) true))\n\n(check-sat)",
+      "encoding": "(set-logic QF_LIA)\n\n(declare-const result_ok Bool)\n(declare-const result_value_totalBalance Int)\n(declare-const args_state_totalBalance Int)\n(declare-const __param0___result_ok Bool)\n(declare-const __param0___after_fromBalance Int)\n(declare-const __param0___before_fromBalance Int)\n(declare-const __param0___input_amount Int)\n(declare-const __param0___after_toBalance Int)\n(declare-const __param0___before_toBalance Int)\n(declare-const args_input_fromId Int)\n(declare-const args_input_toId Int)\n\n(assert (ite result_ok (= result_value_totalBalance args_state_totalBalance) true))\n(assert (ite __param0___result_ok (= __param0___after_fromBalance (- __param0___before_fromBalance __param0___input_amount)) true))\n(assert (ite __param0___result_ok (= __param0___after_toBalance (+ __param0___before_toBalance __param0___input_amount)) true))\n(assert (ite (= args_input_fromId args_input_toId) (not result_ok) true))\n\n(check-sat)",
       "counterexample": {
         "result_ok": "false",
         "args_input_fromId": "0",
@@ -293,9 +411,8 @@
         "__param0___before_fromBalance": "0",
         "__param0___input_amount": "0",
         "__param0___after_fromBalance": "0",
-        "args_state_toBalance": "0",
-        "args_input_amount": "0",
-        "result_value_toBalance": "0",
+        "__param0___before_toBalance": "0",
+        "__param0___after_toBalance": "0",
         "args_state_totalBalance": "0",
         "result_value_totalBalance": "0"
       },
@@ -304,22 +421,48 @@
     {
       "obligationId": "UC-CreateTransfer:smt:consistency",
       "status": "PROVED",
-      "encoding": "(set-logic QF_LIA)\n\n(declare-const __param0___input_fromId_length Int)\n(declare-const __param0___input_toId_length Int)\n(declare-const __param0___result_ok Bool)\n(declare-const __param0___before_totalBalance Int)\n(declare-const __param0___after_totalBalance Int)\n(declare-const __param0___after_fromBalance Int)\n(declare-const __param0___before_fromBalance Int)\n(declare-const __param0___input_amount Int)\n(declare-const __param0___after_toBalance Int)\n\n(assert (and (> __param0___input_fromId_length 0) (> __param0___input_toId_length 0)))\n(assert (ite __param0___result_ok (= __param0___before_totalBalance __param0___after_totalBalance) true))\n(assert (ite __param0___result_ok (= __param0___after_fromBalance (- __param0___before_fromBalance __param0___input_amount)) true))\n(assert (ite __param0___result_ok (and (>= __param0___after_fromBalance 0) (>= __param0___after_toBalance 0)) true))\n\n(check-sat)",
+      "encoding": "(set-logic QF_LIA)\n\n(declare-const __param0___input_fromId_length Int)\n(declare-const __param0___input_toId_length Int)\n(declare-const __param0___result_ok Bool)\n(declare-const __param0___before_totalBalance Int)\n(declare-const __param0___after_totalBalance Int)\n(declare-const __param0___after_fromBalance Int)\n(declare-const __param0___before_fromBalance Int)\n(declare-const __param0___input_amount Int)\n(declare-const __param0___after_toBalance Int)\n(declare-const __param0___before_toBalance Int)\n\n(assert (and (> __param0___input_fromId_length 0) (> __param0___input_toId_length 0)))\n(assert (ite __param0___result_ok (= __param0___before_totalBalance __param0___after_totalBalance) true))\n(assert (ite __param0___result_ok (= __param0___after_fromBalance (- __param0___before_fromBalance __param0___input_amount)) true))\n(assert (ite __param0___result_ok (= __param0___after_toBalance (+ __param0___before_toBalance __param0___input_amount)) true))\n(assert (ite __param0___result_ok (and (>= __param0___after_fromBalance 0) (>= __param0___after_toBalance 0)) true))\n\n(check-sat)",
       "counterexample": {
         "__param0___input_toId_length": "1",
         "__param0___input_fromId_length": "1",
         "__param0___result_ok": "false",
         "__param0___after_fromBalance": "(- 1)",
         "__param0___after_toBalance": "0",
+        "__param0___input_amount": "0",
+        "__param0___before_toBalance": "0",
         "__param0___after_totalBalance": "0",
         "__param0___before_totalBalance": "0",
-        "__param0___input_amount": "0",
         "__param0___before_fromBalance": "(- 1)"
       },
       "reason": "Spec is consistent"
     },
     {
       "obligationId": "UC-CreateTransfer:smt:error_completeness",
+      "status": "PROVED",
+      "reason": "All error predicates are mutually exclusive"
+    },
+    {
+      "obligationId": "UC-CreateTransferRoute:smt:consistency",
+      "status": "PROVED",
+      "encoding": "(set-logic QF_LIA)\n\n(declare-const __param0___result_ok Bool)\n(declare-const __param0___result_value_status Int)\n(declare-const __param0___result_value_body_transfer_id_length Int)\n(declare-const __param0___result_value_body_transfer_fromId Int)\n(declare-const __param0___input_fromId Int)\n(declare-const __param0___result_value_body_transfer_toId Int)\n(declare-const __param0___input_toId Int)\n(declare-const __param0___result_value_body_transfer_amount Int)\n(declare-const __param0___input_amount Int)\n(declare-const __param0___result_value_body_transfer_createdAt_length Int)\n(declare-const __param0___result_value_body_fromBalance Int)\n(declare-const __param0___result_value_body_toBalance Int)\n\n(assert (ite __param0___result_ok (= __param0___result_value_status 201) true))\n(assert (ite __param0___result_ok (and (and (and (and (and (and (> __param0___result_value_body_transfer_id_length 0) (= __param0___result_value_body_transfer_fromId __param0___input_fromId)) (= __param0___result_value_body_transfer_toId __param0___input_toId)) (= __param0___result_value_body_transfer_amount __param0___input_amount)) (> __param0___result_value_body_transfer_createdAt_length 0)) (>= __param0___result_value_body_fromBalance 0)) (>= __param0___result_value_body_toBalance 0)) true))\n\n(check-sat)",
+      "counterexample": {
+        "__param0___result_ok": "false",
+        "__param0___result_value_body_transfer_id_length": "0",
+        "__param0___result_value_body_toBalance": "0",
+        "__param0___result_value_body_fromBalance": "0",
+        "__param0___result_value_body_transfer_createdAt_length": "1",
+        "__param0___input_fromId": "0",
+        "__param0___result_value_body_transfer_fromId": "0",
+        "__param0___input_amount": "0",
+        "__param0___result_value_body_transfer_amount": "0",
+        "__param0___input_toId": "0",
+        "__param0___result_value_body_transfer_toId": "0",
+        "__param0___result_value_status": "201"
+      },
+      "reason": "Spec is consistent"
+    },
+    {
+      "obligationId": "UC-CreateTransferRoute:smt:error_completeness",
       "status": "PROVED",
       "reason": "All error predicates are mutually exclusive"
     }

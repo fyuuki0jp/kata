@@ -31,7 +31,7 @@ export const debitNonNegativeLaw = lawSpec<
   },
   laws: [
     law('non-negative', '成功時は残高 >= 0', (_args, result) =>
-      result.ok ? (result.value ?? 0) >= 0 : true
+      result.ok ? result.value >= 0 : true
     ),
     law('debit-amount', '成功時は残高が正確にamount分減る', (args, result) =>
       result.ok ? result.value === args.balance - args.amount : true

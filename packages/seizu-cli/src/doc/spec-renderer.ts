@@ -14,7 +14,7 @@ interface SerializedSpec {
   readonly kind: 'requirement' | 'usecase' | 'law';
   readonly id: string;
   readonly name: string;
-  readonly dependsOn: readonly string[];
+  readonly dependsOn: readonly { id: string; mode: 'axiom' | 'trace' }[];
   // RequirementSpec fields
   readonly actors?: readonly string[];
   readonly goal?: string;

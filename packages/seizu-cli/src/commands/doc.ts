@@ -17,6 +17,7 @@ import type { GraphJson } from '../doc/spec-renderer';
 import { renderSpecMarkdown } from '../doc/spec-renderer';
 import { docGenerate } from '../domain/pipeline';
 import type { DocPipelineState, SourceFileEntry } from '../domain/types';
+import { runSpecVerify } from './verify';
 
 export function registerDocCommand(cli: CAC): void {
   cli
@@ -57,20 +58,13 @@ export function registerDocCommand(cli: CAC): void {
         // ---- Spec-based documentation mode ----
         if (options.specs) {
           const basePath = process.cwd();
-          const artifactDir = resolve(basePath, options.artifactDir);
-
-          let graph: GraphJson;
-          try {
-            graph = JSON.parse(
-              readFileSync(resolve(artifactDir, 'graph.json'), 'utf-8')
-            ) as GraphJson;
-          } catch {
-            console.error(
-              'Failed to read graph.json. Run `seizu compile` first.'
-            );
-            process.exit(1);
-            return;
-          }
+          const result = await runSpecVerify({
+            config: options.config,
+            artifactDir: options.artifactDir,
+            runs: '100',
+            silent: true,
+          });
+          const graph = result.graphArtifact as GraphJson;
 
           const specTitle = options.title ?? 'Spec Documentation';
           const specMarkdown = renderSpecMarkdown(graph, specTitle);

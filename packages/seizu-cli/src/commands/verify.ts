@@ -1,4 +1,3 @@
-import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import type { CAC } from 'cac';
@@ -8,11 +7,16 @@ import type { SpecVerifyResult as PropagationSpecVerifyResult } from 'seizu/spec
 import { propagateEvidence, RefinementGraph } from 'seizu/spec';
 import type { SpecVerifyResult as PbtSpecVerifyResult } from 'seizu/verify';
 import { mergeEvidence, verify, verifyLaw, verifyUsecase } from 'seizu/verify';
-import type { GraphArtifact, ManifestArtifact } from '../compile/artifact';
+import {
+  type GraphArtifact,
+  type ManifestArtifact,
+  writeGraphArtifact,
+} from '../compile/artifact';
 import { ConfigError, loadConfig } from '../config';
 import { json } from '../verify/reporters/json';
 import { replay } from '../verify/reporters/replay';
 import { summary } from '../verify/reporters/summary';
+import { runSpecCompile } from './compile';
 
 const reporters = { summary, json, replay } as const;
 type ReporterName = keyof typeof reporters;
@@ -22,6 +26,19 @@ type ReporterName = keyof typeof reporters;
 interface SpecVerifyEntry {
   readonly specId: string;
   readonly kind: 'law' | 'usecase';
+}
+
+interface RunSpecVerifyOptions {
+  readonly config: string;
+  readonly artifactDir: string;
+  readonly runs: string;
+  readonly seed?: string;
+  readonly silent?: boolean;
+}
+
+interface RunSpecVerifyResult {
+  readonly graphArtifact: GraphArtifact;
+  readonly exitCode: number;
 }
 
 export function registerVerifyCommand(cli: CAC): void {
@@ -36,7 +53,7 @@ export function registerVerifyCommand(cli: CAC): void {
     })
     .option('--seed <seed>', 'Random seed for reproduction')
     .option('--path <path>', 'Counterexample path for reproduction')
-    .option('--specs', 'Verify formal specs (requires compiled artifacts)')
+    .option('--specs', 'Verify formal specs')
     .option('--artifact-dir <path>', 'Artifact directory', {
       default: '.seizu',
     })
@@ -44,7 +61,8 @@ export function registerVerifyCommand(cli: CAC): void {
       try {
         // ---- Spec-based verification mode ----
         if (options.specs) {
-          await runSpecVerify(options);
+          const result = await runSpecVerify(options);
+          process.exit(result.exitCode);
           return;
         }
 
@@ -91,43 +109,20 @@ export function registerVerifyCommand(cli: CAC): void {
 
 // ---- Spec verification ----
 
-async function runSpecVerify(options: {
-  config: string;
-  artifactDir: string;
-  runs: string;
-  seed?: string;
-}): Promise<void> {
+export async function runSpecVerify(
+  options: RunSpecVerifyOptions
+): Promise<RunSpecVerifyResult> {
+  const { graphArtifact, manifestArtifact, artifactDir } = await runSpecCompile(
+    {
+      config: options.config,
+      artifactDir: options.artifactDir,
+      silent: options.silent,
+    }
+  );
   const basePath = process.cwd();
-  const artifactDir = resolve(basePath, options.artifactDir);
+  const manifest = manifestArtifact as ManifestArtifact;
 
-  // 1. Read compiled artifacts
-  let graphArtifact: GraphArtifact;
-  let manifest: ManifestArtifact;
-  try {
-    graphArtifact = JSON.parse(
-      readFileSync(resolve(artifactDir, 'graph.json'), 'utf-8')
-    ) as GraphArtifact;
-    manifest = JSON.parse(
-      readFileSync(resolve(artifactDir, 'manifest.json'), 'utf-8')
-    ) as ManifestArtifact;
-  } catch {
-    console.error(
-      'Failed to read compiled artifacts. Run `seizu compile` first.'
-    );
-    process.exit(1);
-    return;
-  }
-
-  // 2. Stale check
-  if (!manifest.artifactDigest) {
-    console.error(
-      'Artifact digest missing – artifacts may be stale. Run `seizu compile` first.'
-    );
-    process.exit(1);
-    return;
-  }
-
-  // 3. Read spec verify entries from config
+  // 1. Read spec verify entries from config
   const { config } = await loadConfig(options.config);
   const configAny = config as unknown as Record<string, unknown>;
   const verifySection = configAny.verify as Record<string, unknown> | undefined;
@@ -147,15 +142,16 @@ async function runSpecVerify(options: {
       .map((s) => ({ specId: s.id, kind: s.kind as 'law' | 'usecase' }));
 
     if (autoEntries.length === 0) {
-      console.log('No specs to verify.');
-      process.exit(0);
-      return;
+      if (!options.silent) {
+        console.log('No specs to verify.');
+      }
+      return { graphArtifact, exitCode: 0 };
     }
 
     entriesToVerify = autoEntries;
   }
 
-  // 4. Run PBT verification for each spec
+  // 2. Run PBT verification for each spec
   const smtResults: readonly SmtResult[] = graphArtifact.smtResults ?? [];
   const pbtResults: PbtSpecVerifyResult[] = [];
   const numRuns = Number(options.runs);
@@ -235,14 +231,24 @@ async function runSpecVerify(options: {
         }
 
         // Look for setup/snapshot exports in the spec module
-        const setupFn = (mod.setup ??
+        const setupFn = (mod[`${specObj.id}_setup`] ??
+          mod.setup ??
           (async () => ({ deps: {}, cleanup: undefined }))) as () => Promise<{
           deps: unknown;
           cleanup?: () => Promise<void>;
         }>;
-        const snapshotFn = (mod.snapshot ?? (async () => ({}))) as (
-          deps: unknown
-        ) => Promise<unknown>;
+        const snapshotFn = (mod[`${specObj.id}_snapshot`] ??
+          mod.snapshot ??
+          (async () => ({}))) as (deps: unknown) => Promise<unknown>;
+        const observeFn = (mod[`${specObj.id}_observe`] ?? mod.observe) as
+          | ((
+              ctx: Parameters<typeof verifyUsecase>[1]['observe'] extends
+                | ((ctx: infer T) => Promise<unknown>)
+                | undefined
+                ? T
+                : never
+            ) => Promise<unknown>)
+          | undefined;
 
         const ucResult = await verifyUsecase(
           specObj as unknown as Parameters<typeof verifyUsecase>[0],
@@ -252,6 +258,7 @@ async function runSpecVerify(options: {
               typeof verifyUsecase
             >[1]['inputArbitrary'],
             snapshot: snapshotFn,
+            observe: observeFn,
             targetFn: targetFn as (
               deps: unknown,
               input: unknown
@@ -269,7 +276,7 @@ async function runSpecVerify(options: {
     }
   }
 
-  // 5. Merge SMT + PBT evidence for each spec
+  // 3. Merge SMT + PBT evidence for each spec
   const mergedResults: PbtSpecVerifyResult[] = [];
   for (const pbt of pbtResults) {
     const specSmtResults = smtResults.filter((r) =>
@@ -282,7 +289,7 @@ async function runSpecVerify(options: {
     }
   }
 
-  // 6. Build refinement graph and propagate evidence
+  // 4. Build refinement graph and propagate evidence
   const graph = new RefinementGraph();
   // Add minimal spec nodes for propagation
   for (const spec of graphArtifact.specs) {
@@ -332,14 +339,27 @@ async function runSpecVerify(options: {
   }
 
   const propagated = propagateEvidence(graph, propagationInput);
-
-  // 7. Report results — show ALL specs (including requirements)
-  reportSpecResults(
+  const resolvedInput = resolveDependencyObligations(
     graphArtifact,
-    mergedResults,
-    resolveDependencyObligations(graphArtifact, propagationInput, propagated),
+    propagationInput,
     propagated
   );
+  const finalizedGraph = finalizeGraphArtifact(graphArtifact, resolvedInput);
+  writeGraphArtifact(artifactDir, finalizedGraph);
+
+  const report = reportSpecResults(
+    finalizedGraph,
+    mergedResults,
+    resolvedInput,
+    propagated
+  );
+  if (!options.silent) {
+    console.log(report.output);
+  }
+  return {
+    graphArtifact: finalizedGraph,
+    exitCode: report.exitCode,
+  };
 }
 
 /** Resolve a spec object from the manifest by looking up the module, importing, and finding by id. */
@@ -449,6 +469,28 @@ function resolveDependencyObligations(
   return resolved;
 }
 
+function finalizeGraphArtifact(
+  graphArtifact: GraphArtifact,
+  propagationInput: ReadonlyMap<string, PropagationSpecVerifyResult>
+): GraphArtifact {
+  const obligationStatuses = new Map<string, string>();
+
+  for (const result of propagationInput.values()) {
+    for (const obligation of result.obligations) {
+      obligationStatuses.set(obligation.obligationId, obligation.status);
+    }
+  }
+
+  return {
+    ...graphArtifact,
+    obligations: graphArtifact.obligations.map((obligation) => ({
+      ...obligation,
+      status:
+        obligationStatuses.get(obligation.id) ?? obligation.status ?? 'UNKNOWN',
+    })),
+  };
+}
+
 function reportSpecResults(
   graphArtifact: GraphArtifact,
   pbtResults: readonly PbtSpecVerifyResult[],
@@ -457,7 +499,7 @@ function reportSpecResults(
     string,
     { specId: string; status: string; invalidDeps: readonly string[] }
   >
-): void {
+): { output: string; exitCode: number } {
   // Build a map of SMT reasons for UNKNOWN obligations
   const smtReasonMap = new Map<string, string>();
   for (const smt of (graphArtifact.smtResults ?? []) as readonly SmtResult[]) {
@@ -527,9 +569,10 @@ function reportSpecResults(
       `${proved} proved, ${tested} tested, ${refuted} refuted, ${unknown} unknown, ${assumed} assumed`
   );
 
-  console.log(lines.join('\n'));
-
-  process.exit(refuted > 0 ? 1 : 0);
+  return {
+    output: lines.join('\n'),
+    exitCode: refuted > 0 ? 1 : 0,
+  };
 }
 
 /** Render obligation lines and return status counts. */

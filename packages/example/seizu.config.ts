@@ -3,7 +3,11 @@ export default {
   contracts: [],
   verify: { contracts: [] },
   formalSpec: {
-    entrypoints: ['src/spec/domain.spec.ts', 'src/spec/api.spec.ts'],
+    entrypoints: [
+      'src/spec/domain.spec.ts',
+      'src/spec/api.spec.ts',
+      'src/spec/route.spec.ts',
+    ],
     artifactDir: '.seizu',
   },
 };

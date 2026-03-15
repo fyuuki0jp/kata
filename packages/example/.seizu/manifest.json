@@ -1,26 +1,30 @@
 {
   "artifactVersion": "3.0",
-  "artifactDigest": "6d6a03db7fe1c9ef758512dc54a64ecde8ac3dbe24313a804562aa47d1a182cf",
+  "artifactDigest": "519b876775f63cd446eaf312c05c29d2dcc6438927d2ac2ce36fef56bacc82a1",
   "entrypoints": [
     {
       "path": "/Users/yuuki/workspace/seizu/packages/example/src/spec/domain.spec.ts",
-      "digest": "dc5e345f061130b5608080e8277e68d4957865996c4b301762cae4f76724456c"
+      "digest": "ad20f8f8b6125aa59c1985831d70f1107e0140ef074216550da8eac37bfbeb16"
     },
     {
       "path": "/Users/yuuki/workspace/seizu/packages/example/src/spec/domain.spec.ts",
-      "digest": "dc5e345f061130b5608080e8277e68d4957865996c4b301762cae4f76724456c"
+      "digest": "ad20f8f8b6125aa59c1985831d70f1107e0140ef074216550da8eac37bfbeb16"
     },
     {
       "path": "/Users/yuuki/workspace/seizu/packages/example/src/spec/domain.spec.ts",
-      "digest": "dc5e345f061130b5608080e8277e68d4957865996c4b301762cae4f76724456c"
+      "digest": "ad20f8f8b6125aa59c1985831d70f1107e0140ef074216550da8eac37bfbeb16"
     },
     {
       "path": "/Users/yuuki/workspace/seizu/packages/example/src/spec/api.spec.ts",
-      "digest": "2871072fc32d4ac19de141ac4d1e21f27477d5537c8bacd47fc1c40c8c7a3f9f"
+      "digest": "c09b38b5f06234df6cabd382e0919680e7c7737485679bd9020a05121e06d9d4"
     },
     {
       "path": "/Users/yuuki/workspace/seizu/packages/example/src/spec/api.spec.ts",
-      "digest": "2871072fc32d4ac19de141ac4d1e21f27477d5537c8bacd47fc1c40c8c7a3f9f"
+      "digest": "c09b38b5f06234df6cabd382e0919680e7c7737485679bd9020a05121e06d9d4"
+    },
+    {
+      "path": "/Users/yuuki/workspace/seizu/packages/example/src/spec/route.spec.ts",
+      "digest": "98ff995471efc8f22f82541741385e0085c69ee7c9cef877360806bb38f1949e"
     }
   ],
   "targets": [
@@ -47,6 +51,12 @@
       "kind": "usecase",
       "modulePath": "/Users/yuuki/workspace/seizu/packages/example/src/spec/src/api/transfers",
       "exportName": "createTransfer"
+    },
+    {
+      "specId": "UC-CreateTransferRoute",
+      "kind": "usecase",
+      "modulePath": "/Users/yuuki/workspace/seizu/packages/example/src/spec/src/spec/route.spec",
+      "exportName": "invokeCreateTransferRoute"
     }
   ],
   "specs": [
@@ -88,6 +98,14 @@
       "modulePath": "/Users/yuuki/workspace/seizu/packages/example/src/spec/api.spec.ts",
       "exportName": "specs",
       "index": 4,
+      "specHash": ""
+    },
+    {
+      "specId": "UC-CreateTransferRoute",
+      "kind": "usecase",
+      "modulePath": "/Users/yuuki/workspace/seizu/packages/example/src/spec/route.spec.ts",
+      "exportName": "specs",
+      "index": 5,
       "specHash": ""
     }
   ]
