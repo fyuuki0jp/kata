@@ -9,10 +9,56 @@ export interface SmtEncoding {
 type SmtLogic = 'QF_LIA' | 'LIA' | 'QF_SLIA' | 'ALL';
 type MembershipDecl = { readonly name: string; readonly sort: SmtSort };
 
+// ── Generic tree walker ──────────────────────────────────
+
+/**
+ * Generic visitor-based tree walker for SmtExpr.
+ * Calls visitor(expr) on every node, then recurses into children.
+ */
+function walkExpr(expr: SmtExpr, visitor: (node: SmtExpr) => void): void {
+  visitor(expr);
+  switch (expr.kind) {
+    case 'binop':
+      walkExpr(expr.left, visitor);
+      walkExpr(expr.right, visitor);
+      break;
+    case 'unop':
+      walkExpr(expr.expr, visitor);
+      break;
+    case 'ternary':
+      walkExpr(expr.cond, visitor);
+      walkExpr(expr.thenExpr, visitor);
+      walkExpr(expr.else, visitor);
+      break;
+    case 'prop':
+      walkExpr(expr.obj, visitor);
+      break;
+    case 'call':
+      for (const arg of expr.args) {
+        walkExpr(arg, visitor);
+      }
+      break;
+    case 'forall':
+    case 'exists':
+      walkExpr(expr.domain, visitor);
+      walkExpr(expr.body, visitor);
+      break;
+    case 'length':
+      walkExpr(expr.obj, visitor);
+      break;
+    // 'var', 'literal', 'unsupported' are leaves
+  }
+}
+
+// ── Variable collection ──────────────────────────────────
+
 /**
  * Collect all variables referenced in an expression.
  * Walks the IR tree and gathers all leaf var/prop references,
  * flattening property chains into SMT variable names.
+ *
+ * Note: This uses its own recursive traversal (not walkExpr) because
+ * it needs post-order processing for sort inference.
  */
 export function collectVariables(expr: SmtExpr): SmtVar[] {
   const vars = new Map<string, SmtVar>();
@@ -310,35 +356,16 @@ function encodeUnOp(op: string, operand: string): string {
  * If so, we need to use a string-capable logic.
  */
 export function hasStrings(expr: SmtExpr): boolean {
-  switch (expr.kind) {
-    case 'literal':
-      return typeof expr.value === 'string';
-    case 'binop':
-      return hasStrings(expr.left) || hasStrings(expr.right);
-    case 'unop':
-      return hasStrings(expr.expr);
-    case 'ternary':
-      return (
-        hasStrings(expr.cond) ||
-        hasStrings(expr.thenExpr) ||
-        hasStrings(expr.else)
-      );
-    case 'prop':
-      return hasStrings(expr.obj);
-    case 'call':
-      return (
-        expr.callee === 'String.startsWith' ||
-        expr.args.some((a) => hasStrings(a))
-      );
-    case 'forall':
-      return hasStrings(expr.domain) || hasStrings(expr.body);
-    case 'exists':
-      return hasStrings(expr.domain) || hasStrings(expr.body);
-    case 'length':
-      return hasStrings(expr.obj);
-    default:
-      return false;
-  }
+  let found = false;
+  walkExpr(expr, (node) => {
+    if (found) return;
+    if (node.kind === 'literal' && typeof node.value === 'string') {
+      found = true;
+    } else if (node.kind === 'call' && node.callee === 'String.startsWith') {
+      found = true;
+    }
+  });
+  return found;
 }
 
 /**
@@ -346,75 +373,38 @@ export function hasStrings(expr: SmtExpr): boolean {
  * If so, we need to upgrade the logic from QF_LIA to LIA.
  */
 export function hasQuantifiers(expr: SmtExpr): boolean {
-  switch (expr.kind) {
-    case 'forall':
-    case 'exists':
-      return true;
-    case 'binop':
-      return hasQuantifiers(expr.left) || hasQuantifiers(expr.right);
-    case 'unop':
-      return hasQuantifiers(expr.expr);
-    case 'ternary':
-      return (
-        hasQuantifiers(expr.cond) ||
-        hasQuantifiers(expr.thenExpr) ||
-        hasQuantifiers(expr.else)
-      );
-    case 'length':
-      return hasQuantifiers(expr.obj);
-    default:
-      return false;
-  }
+  let found = false;
+  walkExpr(expr, (node) => {
+    if (found) return;
+    if (node.kind === 'forall' || node.kind === 'exists') {
+      found = true;
+    }
+  });
+  return found;
 }
 
 function collectMembershipDeclarations(
   expr: SmtExpr,
   declarations: Map<string, MembershipDecl>
 ): void {
-  switch (expr.kind) {
-    case 'forall':
-    case 'exists': {
-      const domain = flattenPropAccess(expr.domain);
+  walkExpr(expr, (node) => {
+    if (node.kind === 'forall' || node.kind === 'exists') {
+      const domain = flattenPropAccess(node.domain);
       declarations.set(`member_of_${domain}`, {
         name: `member_of_${domain}`,
         sort: 'Int',
       });
-      collectMembershipDeclarations(expr.domain, declarations);
-      collectMembershipDeclarations(expr.body, declarations);
-      break;
+    } else if (
+      node.kind === 'call' &&
+      node.callee === 'Collection.includes' &&
+      node.args.length === 2
+    ) {
+      const domain = flattenPropAccess(node.args[0]);
+      const sort = inferExprSort(node.args[1]);
+      const name = membershipPredicateName(domain, sort);
+      declarations.set(name, { name, sort });
     }
-    case 'call':
-      if (expr.callee === 'Collection.includes' && expr.args.length === 2) {
-        const domain = flattenPropAccess(expr.args[0]);
-        const sort = inferExprSort(expr.args[1]);
-        const name = membershipPredicateName(domain, sort);
-        declarations.set(name, { name, sort });
-      }
-      for (const arg of expr.args) {
-        collectMembershipDeclarations(arg, declarations);
-      }
-      break;
-    case 'binop':
-      collectMembershipDeclarations(expr.left, declarations);
-      collectMembershipDeclarations(expr.right, declarations);
-      break;
-    case 'unop':
-      collectMembershipDeclarations(expr.expr, declarations);
-      break;
-    case 'ternary':
-      collectMembershipDeclarations(expr.cond, declarations);
-      collectMembershipDeclarations(expr.thenExpr, declarations);
-      collectMembershipDeclarations(expr.else, declarations);
-      break;
-    case 'length':
-      collectMembershipDeclarations(expr.obj, declarations);
-      break;
-    case 'prop':
-      collectMembershipDeclarations(expr.obj, declarations);
-      break;
-    default:
-      break;
-  }
+  });
 }
 
 export function selectLogic(exprs: readonly SmtExpr[]): SmtLogic {

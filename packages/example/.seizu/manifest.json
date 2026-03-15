@@ -1,26 +1,26 @@
 {
   "artifactVersion": "3.0",
-  "artifactDigest": "8e2ee4570b84504b9bede30c4bbb9ed0cf44627a63112dfec34443d94d56cc69",
+  "artifactDigest": "6d6a03db7fe1c9ef758512dc54a64ecde8ac3dbe24313a804562aa47d1a182cf",
   "entrypoints": [
     {
       "path": "/Users/yuuki/workspace/seizu/packages/example/src/spec/domain.spec.ts",
-      "digest": "c777f3a8f09b9cc8949fe3b3f34754d979dc5e2774996e0047ae6a0737d33ac9"
+      "digest": "dc5e345f061130b5608080e8277e68d4957865996c4b301762cae4f76724456c"
     },
     {
       "path": "/Users/yuuki/workspace/seizu/packages/example/src/spec/domain.spec.ts",
-      "digest": "c777f3a8f09b9cc8949fe3b3f34754d979dc5e2774996e0047ae6a0737d33ac9"
+      "digest": "dc5e345f061130b5608080e8277e68d4957865996c4b301762cae4f76724456c"
     },
     {
       "path": "/Users/yuuki/workspace/seizu/packages/example/src/spec/domain.spec.ts",
-      "digest": "c777f3a8f09b9cc8949fe3b3f34754d979dc5e2774996e0047ae6a0737d33ac9"
+      "digest": "dc5e345f061130b5608080e8277e68d4957865996c4b301762cae4f76724456c"
     },
     {
       "path": "/Users/yuuki/workspace/seizu/packages/example/src/spec/api.spec.ts",
-      "digest": "eadf169e29b61a8be004231ec4fba389ec82f25659789ebe1259d6dd7720ae4d"
+      "digest": "2871072fc32d4ac19de141ac4d1e21f27477d5537c8bacd47fc1c40c8c7a3f9f"
     },
     {
       "path": "/Users/yuuki/workspace/seizu/packages/example/src/spec/api.spec.ts",
-      "digest": "eadf169e29b61a8be004231ec4fba389ec82f25659789ebe1259d6dd7720ae4d"
+      "digest": "2871072fc32d4ac19de141ac4d1e21f27477d5537c8bacd47fc1c40c8c7a3f9f"
     }
   ],
   "targets": [

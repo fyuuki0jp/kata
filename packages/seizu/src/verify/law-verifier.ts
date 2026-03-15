@@ -34,7 +34,8 @@ export function verifyLaw(
 
   // Build arbitrary from generators
   const genKeys = Object.keys(spec.generators);
-  const genArbs = genKeys.map((k) => spec.generators[k]);
+  const generators = spec.generators as Record<string, fc.Arbitrary<unknown>>;
+  const genArbs = genKeys.map((k) => generators[k]);
   const argsArb = fc.record(
     Object.fromEntries(genKeys.map((k, i) => [k, genArbs[i]]))
   );

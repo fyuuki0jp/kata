@@ -49,14 +49,24 @@ export async function createSolver(): Promise<SmtSolver> {
 
 class Z3WasmSolver implements SmtSolver {
   private z3: Z3Module;
+  private initPromise: Promise<{
+    Context: new (name: string) => Z3Context;
+  }> | null = null;
 
   constructor(z3Module: Z3Module) {
     this.z3 = z3Module;
   }
 
+  private getInit(): Promise<{ Context: new (name: string) => Z3Context }> {
+    if (!this.initPromise) {
+      this.initPromise = this.z3.init();
+    }
+    return this.initPromise;
+  }
+
   async solve(smtLib: string, obligationId: string): Promise<SmtResult> {
     try {
-      const { Context } = await this.z3.init();
+      const { Context } = await this.getInit();
       const ctx = new Context('main');
 
       // Use Z3's SMT-LIB parser to evaluate

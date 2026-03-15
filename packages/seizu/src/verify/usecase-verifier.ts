@@ -268,7 +268,12 @@ export async function verifyUsecase(
                 (evaluationCounts.get(effKey) ?? 0) + 1
               );
               try {
-                if (!eff.predicate(observed, ctx)) {
+                if (
+                  !eff.predicate(
+                    observed as Parameters<typeof eff.predicate>[0],
+                    ctx
+                  )
+                ) {
                   obligationResults.set(
                     `${spec.id}:effect:${eff.id}:${eff.facet}`,
                     {

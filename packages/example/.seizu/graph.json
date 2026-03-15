@@ -1,6 +1,6 @@
 {
   "artifactVersion": "3.0",
-  "artifactDigest": "8e2ee4570b84504b9bede30c4bbb9ed0cf44627a63112dfec34443d94d56cc69",
+  "artifactDigest": "6d6a03db7fe1c9ef758512dc54a64ecde8ac3dbe24313a804562aa47d1a182cf",
   "specs": [
     {
       "id": "LAW-DebitNonNegative",
@@ -83,7 +83,7 @@
       "kind": "smt",
       "clauseId": "consistency",
       "description": "Law clauses are mutually consistent",
-      "status": "PROVED"
+      "status": "UNKNOWN"
     },
     {
       "id": "LAW-CreditAlwaysSucceeds:law:always-succeeds",
@@ -267,15 +267,8 @@
   "smtResults": [
     {
       "obligationId": "LAW-DebitNonNegative:smt:consistency",
-      "status": "PROVED",
-      "encoding": "(set-logic QF_LIA)\n\n(declare-const result_ok Bool)\n(declare-const result_value Int)\n(declare-const args_balance Int)\n(declare-const args_amount Int)\n\n(assert (ite result_ok (>= result_value 0) true))\n(assert (ite result_ok (= result_value (- args_balance args_amount)) true))\n(assert (ite (< args_balance args_amount) (not result_ok) true))\n\n(check-sat)",
-      "counterexample": {
-        "result_ok": "false",
-        "args_amount": "0",
-        "args_balance": "(- 2)",
-        "result_value": "(- 1)"
-      },
-      "reason": "Laws are consistent"
+      "status": "UNKNOWN",
+      "reason": "Failed to encode law: Unsupported operator: QuestionQuestionToken"
     },
     {
       "obligationId": "LAW-CreditAlwaysSucceeds:smt:consistency",

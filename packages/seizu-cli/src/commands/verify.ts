@@ -162,62 +162,17 @@ async function runSpecVerify(options: {
   const seed = options.seed !== undefined ? Number(options.seed) : undefined;
 
   for (const entry of entriesToVerify) {
+    const resolved = await resolveSpecFromManifest(
+      entry.specId,
+      manifest,
+      basePath
+    );
+    if (!resolved) continue;
+
+    const { specObj, mod } = resolved;
+
     if (entry.kind === 'law') {
-      // Find the spec's module path from manifest
-      const manifestEntry = manifest.specs.find(
-        (s) => s.specId === entry.specId
-      );
-      if (!manifestEntry) {
-        console.error(`  ${entry.specId} — manifest entry not found, skipping`);
-        continue;
-      }
-
-      // Import the spec module to get the law spec object
-      const modulePath = resolve(basePath, manifestEntry.modulePath);
       try {
-        const mod = (await import(pathToFileURL(modulePath).href)) as Record<
-          string,
-          unknown
-        >;
-        const exportedSpecs = mod[manifestEntry.exportName];
-
-        // Find the spec in the exported array by id (fallback to index)
-        let lawSpec: unknown;
-        if (Array.isArray(exportedSpecs)) {
-          lawSpec =
-            exportedSpecs.find(
-              (s: unknown) =>
-                s &&
-                typeof s === 'object' &&
-                'id' in s &&
-                (s as { id: string }).id === entry.specId
-            ) ?? exportedSpecs[manifestEntry.index];
-        } else {
-          lawSpec = exportedSpecs;
-        }
-
-        if (!lawSpec || typeof lawSpec !== 'object') {
-          console.error(
-            `  ${entry.specId} — could not resolve spec object, skipping`
-          );
-          continue;
-        }
-
-        const specObj = lawSpec as {
-          id: string;
-          name: string;
-          target: { module: string; export: string };
-          generators: Record<string, unknown>;
-          laws: readonly {
-            id: string;
-            description: string;
-            predicate: (
-              args: Record<string, unknown>,
-              result: unknown
-            ) => boolean;
-          }[];
-        };
-
         // Import the target function
         const targetModulePath = resolve(basePath, specObj.target.module);
         const targetMod = (await import(
@@ -233,7 +188,7 @@ async function runSpecVerify(options: {
         }
 
         const pbtResult = verifyLaw(
-          specObj as Parameters<typeof verifyLaw>[0],
+          specObj as unknown as Parameters<typeof verifyLaw>[0],
           {
             targetFn: (...args: unknown[]) => targetFn(...args),
             numRuns,
@@ -247,74 +202,7 @@ async function runSpecVerify(options: {
         );
       }
     } else if (entry.kind === 'usecase') {
-      // Find the spec's module path from manifest
-      const manifestEntry = manifest.specs.find(
-        (s) => s.specId === entry.specId
-      );
-      if (!manifestEntry) {
-        console.error(`  ${entry.specId} — manifest entry not found, skipping`);
-        continue;
-      }
-
-      const modulePath = resolve(basePath, manifestEntry.modulePath);
       try {
-        const mod = (await import(pathToFileURL(modulePath).href)) as Record<
-          string,
-          unknown
-        >;
-        const exportedSpecs = mod[manifestEntry.exportName];
-
-        let ucSpec: unknown;
-        if (Array.isArray(exportedSpecs)) {
-          ucSpec =
-            exportedSpecs.find(
-              (s: unknown) =>
-                s &&
-                typeof s === 'object' &&
-                'id' in s &&
-                (s as { id: string }).id === entry.specId
-            ) ?? exportedSpecs[manifestEntry.index];
-        } else {
-          ucSpec = exportedSpecs;
-        }
-
-        if (!ucSpec || typeof ucSpec !== 'object') {
-          console.error(
-            `  ${entry.specId} — could not resolve spec object, skipping`
-          );
-          continue;
-        }
-
-        const specObj = ucSpec as {
-          id: string;
-          name: string;
-          kind: string;
-          target: { module: string; export: string };
-          classifyError: (error: unknown) => string;
-          given: readonly {
-            id: string;
-            predicate: (ctx: unknown) => boolean;
-          }[];
-          ensures: readonly {
-            id: string;
-            predicate: (ctx: unknown) => boolean;
-          }[];
-          invariants: readonly {
-            id: string;
-            predicate: (ctx: unknown) => boolean;
-          }[];
-          errors: readonly {
-            id: string;
-            tag: string;
-            predicate?: (ctx: unknown) => boolean;
-          }[];
-          effects: readonly {
-            id: string;
-            facet: string;
-            predicate: (observed: unknown, ctx: unknown) => boolean;
-          }[];
-        };
-
         // Import the target function
         const targetModulePath = resolve(basePath, specObj.target.module);
         const targetMod = (await import(
@@ -331,18 +219,15 @@ async function runSpecVerify(options: {
           continue;
         }
 
-        // Build inputArbitrary from spec's generators or use a basic one
-        // For auto-verify mode, look for a generators export or use the spec's given to build test data
+        // Try to find an inputArbitrary export in the module
         let inputArb: unknown;
         try {
-          // Try to find an inputArbitrary export in the module
           inputArb = mod.inputArbitrary ?? mod[`${specObj.id}_inputArbitrary`];
         } catch {
           // ignore
         }
 
         if (!inputArb) {
-          // Skip usecase without inputArbitrary
           console.error(
             `  ${entry.specId} — no inputArbitrary found, skipping usecase PBT`
           );
@@ -359,9 +244,8 @@ async function runSpecVerify(options: {
           deps: unknown
         ) => Promise<unknown>;
 
-        // Run UsecaseSpec verification with verifyUsecase
         const ucResult = await verifyUsecase(
-          specObj as Parameters<typeof verifyUsecase>[0],
+          specObj as unknown as Parameters<typeof verifyUsecase>[0],
           {
             setup: setupFn,
             inputArbitrary: inputArb as Parameters<
@@ -456,6 +340,67 @@ async function runSpecVerify(options: {
     resolveDependencyObligations(graphArtifact, propagationInput, propagated),
     propagated
   );
+}
+
+/** Resolve a spec object from the manifest by looking up the module, importing, and finding by id. */
+async function resolveSpecFromManifest(
+  specId: string,
+  manifest: ManifestArtifact,
+  basePath: string
+): Promise<{
+  specObj: { id: string; target: { module: string; export: string } } & Record<
+    string,
+    unknown
+  >;
+  mod: Record<string, unknown>;
+} | null> {
+  const manifestEntry = manifest.specs.find((s) => s.specId === specId);
+  if (!manifestEntry) {
+    console.error(`  ${specId} — manifest entry not found, skipping`);
+    return null;
+  }
+
+  const modulePath = resolve(basePath, manifestEntry.modulePath);
+  let mod: Record<string, unknown>;
+  try {
+    mod = (await import(pathToFileURL(modulePath).href)) as Record<
+      string,
+      unknown
+    >;
+  } catch (e) {
+    console.error(
+      `  ${specId} — error importing module: ${e instanceof Error ? e.message : String(e)}`
+    );
+    return null;
+  }
+  const exportedSpecs = mod[manifestEntry.exportName];
+
+  let spec: unknown;
+  if (Array.isArray(exportedSpecs)) {
+    spec =
+      exportedSpecs.find(
+        (s: unknown) =>
+          s &&
+          typeof s === 'object' &&
+          'id' in s &&
+          (s as { id: string }).id === specId
+      ) ?? exportedSpecs[manifestEntry.index];
+  } else {
+    spec = exportedSpecs;
+  }
+
+  if (!spec || typeof spec !== 'object') {
+    console.error(`  ${specId} — could not resolve spec object, skipping`);
+    return null;
+  }
+
+  return {
+    specObj: spec as {
+      id: string;
+      target: { module: string; export: string };
+    } & Record<string, unknown>,
+    mod,
+  };
 }
 
 function resolveDependencyObligations(
@@ -554,76 +499,15 @@ function reportSpecResults(
 
     lines.push(`  [${kindLabel}] ${spec.name} (${spec.id})`);
 
-    if (pbtResult) {
-      // Show merged obligations from PBT run
-      for (const ob of pbtResult.obligations) {
-        const status = ob.status;
-        const icon =
-          status === 'PROVED' || status === 'TESTED'
-            ? '\u2713'
-            : status === 'REFUTED'
-              ? '\u2717'
-              : '?';
-        const parts = ob.obligationId.split(':');
-        const kindAndClause = parts.slice(1).join(':');
-        const reason = smtReasonMap.get(ob.obligationId);
-        const reasonSuffix =
-          status === 'UNKNOWN' && reason ? ` (${reason})` : '';
-        lines.push(`    ${icon} ${kindAndClause} — ${status}${reasonSuffix}`);
-        totalObligations++;
-        switch (status) {
-          case 'PROVED':
-            proved++;
-            break;
-          case 'TESTED':
-            tested++;
-            break;
-          case 'REFUTED':
-            refuted++;
-            break;
-          case 'ASSUMED':
-            assumed++;
-            break;
-          default:
-            unknown++;
-            break;
-        }
-      }
-    } else if (propInput) {
-      // No PBT but has propagation input (e.g. requirements with SMT obligations)
-      for (const ob of propInput.obligations) {
-        const status = ob.status;
-        const icon =
-          status === 'PROVED' || status === 'TESTED'
-            ? '\u2713'
-            : status === 'REFUTED'
-              ? '\u2717'
-              : '?';
-        const parts = ob.obligationId.split(':');
-        const kindAndClause = parts.slice(1).join(':');
-        const reason = smtReasonMap.get(ob.obligationId);
-        const reasonSuffix =
-          status === 'UNKNOWN' && reason ? ` (${reason})` : '';
-        lines.push(`    ${icon} ${kindAndClause} — ${status}${reasonSuffix}`);
-        totalObligations++;
-        switch (status) {
-          case 'PROVED':
-            proved++;
-            break;
-          case 'TESTED':
-            tested++;
-            break;
-          case 'REFUTED':
-            refuted++;
-            break;
-          case 'ASSUMED':
-            assumed++;
-            break;
-          default:
-            unknown++;
-            break;
-        }
-      }
+    const obligations = pbtResult?.obligations ?? propInput?.obligations;
+    if (obligations) {
+      const counts = renderObligations(obligations, smtReasonMap, lines);
+      totalObligations += counts.total;
+      proved += counts.proved;
+      tested += counts.tested;
+      refuted += counts.refuted;
+      unknown += counts.unknown;
+      assumed += counts.assumed;
     } else {
       // No obligations at all
       lines.push(`    (no obligations)`);
@@ -646,4 +530,65 @@ function reportSpecResults(
   console.log(lines.join('\n'));
 
   process.exit(refuted > 0 ? 1 : 0);
+}
+
+/** Render obligation lines and return status counts. */
+function renderObligations(
+  obligations: readonly { obligationId: string; status: string }[],
+  smtReasonMap: ReadonlyMap<string, string>,
+  lines: string[]
+): {
+  total: number;
+  proved: number;
+  tested: number;
+  refuted: number;
+  unknown: number;
+  assumed: number;
+} {
+  let proved = 0;
+  let tested = 0;
+  let refuted = 0;
+  let unknown = 0;
+  let assumed = 0;
+
+  for (const ob of obligations) {
+    const status = ob.status;
+    const icon =
+      status === 'PROVED' || status === 'TESTED'
+        ? '\u2713'
+        : status === 'REFUTED'
+          ? '\u2717'
+          : '?';
+    const parts = ob.obligationId.split(':');
+    const kindAndClause = parts.slice(1).join(':');
+    const reason = smtReasonMap.get(ob.obligationId);
+    const reasonSuffix = status === 'UNKNOWN' && reason ? ` (${reason})` : '';
+    lines.push(`    ${icon} ${kindAndClause} — ${status}${reasonSuffix}`);
+    switch (status) {
+      case 'PROVED':
+        proved++;
+        break;
+      case 'TESTED':
+        tested++;
+        break;
+      case 'REFUTED':
+        refuted++;
+        break;
+      case 'ASSUMED':
+        assumed++;
+        break;
+      default:
+        unknown++;
+        break;
+    }
+  }
+
+  return {
+    total: obligations.length,
+    proved,
+    tested,
+    refuted,
+    unknown,
+    assumed,
+  };
 }
