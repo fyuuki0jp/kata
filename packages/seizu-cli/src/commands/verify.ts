@@ -181,10 +181,17 @@ async function runSpecVerify(options: {
         >;
         const exportedSpecs = mod[manifestEntry.exportName];
 
-        // Find the spec in the exported array or object
+        // Find the spec in the exported array by id (fallback to index)
         let lawSpec: unknown;
         if (Array.isArray(exportedSpecs)) {
-          lawSpec = exportedSpecs[manifestEntry.index];
+          lawSpec =
+            exportedSpecs.find(
+              (s: unknown) =>
+                s &&
+                typeof s === 'object' &&
+                'id' in s &&
+                (s as { id: string }).id === entry.specId
+            ) ?? exportedSpecs[manifestEntry.index];
         } else {
           lawSpec = exportedSpecs;
         }
@@ -259,7 +266,14 @@ async function runSpecVerify(options: {
 
         let ucSpec: unknown;
         if (Array.isArray(exportedSpecs)) {
-          ucSpec = exportedSpecs[manifestEntry.index];
+          ucSpec =
+            exportedSpecs.find(
+              (s: unknown) =>
+                s &&
+                typeof s === 'object' &&
+                'id' in s &&
+                (s as { id: string }).id === entry.specId
+            ) ?? exportedSpecs[manifestEntry.index];
         } else {
           ucSpec = exportedSpecs;
         }
@@ -335,15 +349,25 @@ async function runSpecVerify(options: {
           continue;
         }
 
+        // Look for setup/snapshot exports in the spec module
+        const setupFn = (mod.setup ??
+          (async () => ({ deps: {}, cleanup: undefined }))) as () => Promise<{
+          deps: unknown;
+          cleanup?: () => Promise<void>;
+        }>;
+        const snapshotFn = (mod.snapshot ?? (async () => ({}))) as (
+          deps: unknown
+        ) => Promise<unknown>;
+
         // Run UsecaseSpec verification with verifyUsecase
         const ucResult = await verifyUsecase(
           specObj as Parameters<typeof verifyUsecase>[0],
           {
-            setup: async () => ({ deps: {}, cleanup: undefined }),
+            setup: setupFn,
             inputArbitrary: inputArb as Parameters<
               typeof verifyUsecase
             >[1]['inputArbitrary'],
-            snapshot: async () => ({ graphSize: 0 }),
+            snapshot: snapshotFn,
             targetFn: targetFn as (
               deps: unknown,
               input: unknown

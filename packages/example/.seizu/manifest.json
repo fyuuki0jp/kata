@@ -1,0 +1,94 @@
+{
+  "artifactVersion": "3.0",
+  "artifactDigest": "8e2ee4570b84504b9bede30c4bbb9ed0cf44627a63112dfec34443d94d56cc69",
+  "entrypoints": [
+    {
+      "path": "/Users/yuuki/workspace/seizu/packages/example/src/spec/domain.spec.ts",
+      "digest": "c777f3a8f09b9cc8949fe3b3f34754d979dc5e2774996e0047ae6a0737d33ac9"
+    },
+    {
+      "path": "/Users/yuuki/workspace/seizu/packages/example/src/spec/domain.spec.ts",
+      "digest": "c777f3a8f09b9cc8949fe3b3f34754d979dc5e2774996e0047ae6a0737d33ac9"
+    },
+    {
+      "path": "/Users/yuuki/workspace/seizu/packages/example/src/spec/domain.spec.ts",
+      "digest": "c777f3a8f09b9cc8949fe3b3f34754d979dc5e2774996e0047ae6a0737d33ac9"
+    },
+    {
+      "path": "/Users/yuuki/workspace/seizu/packages/example/src/spec/api.spec.ts",
+      "digest": "eadf169e29b61a8be004231ec4fba389ec82f25659789ebe1259d6dd7720ae4d"
+    },
+    {
+      "path": "/Users/yuuki/workspace/seizu/packages/example/src/spec/api.spec.ts",
+      "digest": "eadf169e29b61a8be004231ec4fba389ec82f25659789ebe1259d6dd7720ae4d"
+    }
+  ],
+  "targets": [
+    {
+      "specId": "LAW-DebitNonNegative",
+      "kind": "law",
+      "modulePath": "/Users/yuuki/workspace/seizu/packages/example/src/spec/src/domain/account",
+      "exportName": "debit"
+    },
+    {
+      "specId": "LAW-CreditAlwaysSucceeds",
+      "kind": "law",
+      "modulePath": "/Users/yuuki/workspace/seizu/packages/example/src/spec/src/domain/account",
+      "exportName": "credit"
+    },
+    {
+      "specId": "LAW-TransferConservation",
+      "kind": "law",
+      "modulePath": "/Users/yuuki/workspace/seizu/packages/example/src/spec/src/domain/transfer",
+      "exportName": "applyTransfer"
+    },
+    {
+      "specId": "UC-CreateTransfer",
+      "kind": "usecase",
+      "modulePath": "/Users/yuuki/workspace/seizu/packages/example/src/spec/src/api/transfers",
+      "exportName": "createTransfer"
+    }
+  ],
+  "specs": [
+    {
+      "specId": "LAW-DebitNonNegative",
+      "kind": "law",
+      "modulePath": "/Users/yuuki/workspace/seizu/packages/example/src/spec/domain.spec.ts",
+      "exportName": "specs",
+      "index": 0,
+      "specHash": ""
+    },
+    {
+      "specId": "LAW-CreditAlwaysSucceeds",
+      "kind": "law",
+      "modulePath": "/Users/yuuki/workspace/seizu/packages/example/src/spec/domain.spec.ts",
+      "exportName": "specs",
+      "index": 1,
+      "specHash": ""
+    },
+    {
+      "specId": "LAW-TransferConservation",
+      "kind": "law",
+      "modulePath": "/Users/yuuki/workspace/seizu/packages/example/src/spec/domain.spec.ts",
+      "exportName": "specs",
+      "index": 2,
+      "specHash": ""
+    },
+    {
+      "specId": "UC-CreateTransfer",
+      "kind": "usecase",
+      "modulePath": "/Users/yuuki/workspace/seizu/packages/example/src/spec/api.spec.ts",
+      "exportName": "specs",
+      "index": 3,
+      "specHash": ""
+    },
+    {
+      "specId": "REQ-MoneyTransfer",
+      "kind": "requirement",
+      "modulePath": "/Users/yuuki/workspace/seizu/packages/example/src/spec/api.spec.ts",
+      "exportName": "specs",
+      "index": 4,
+      "specHash": ""
+    }
+  ]
+}
