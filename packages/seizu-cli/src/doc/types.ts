@@ -147,6 +147,13 @@ export interface SeizuVerifyConfig {
   readonly contracts: readonly ContractEntry[];
 }
 
+export interface SeizuFormalSpecConfig {
+  readonly entrypoints: readonly string[];
+  readonly artifactDir?: string;
+  readonly docs?: { readonly output: string };
+}
+
 export interface SeizuConfig extends SeizuDocConfig {
   readonly verify: SeizuVerifyConfig;
+  readonly formalSpec?: SeizuFormalSpecConfig;
 }

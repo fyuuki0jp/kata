@@ -36,3 +36,5 @@ pnpm-debug.log*
 # Misc
 contracts.flow.json
 tmp.md
+
+.claude/plans

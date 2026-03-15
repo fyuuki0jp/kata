@@ -18,10 +18,13 @@
   "packageManager": "pnpm@10.18.0",
   "devDependencies": {
     "@biomejs/biome": "^2.3.11",
+    "@slidev/cli": "^52.14.1",
+    "@slidev/theme-default": "^0.25.0",
     "@types/node": "^25.0.9",
     "@vitest/coverage-v8": "^4.0.17",
     "husky": "^9.1.7",
     "lint-staged": "^16.2.7",
+    "playwright-chromium": "^1.58.2",
     "tsup": "^8.5.1",
     "tsx": "^4.21.0",
     "turbo": "^2.0.0",
