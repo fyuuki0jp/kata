@@ -256,7 +256,7 @@ describe('TransferFunds E2E Spike', () => {
     test('UsecaseSpec obligations have correct format', () => {
       const obligations = generateObligations(transferFundsSpec);
 
-      // given: 2, ensure: 1, error: 2, runtime: 1, smt: 3 (consistency + error_completeness + refinement:LAW-UpdateBalances)
+      // given: 2, ensure: 1, error: 2, runtime: 2, smt: 3 (consistency + error_completeness + refinement:LAW-UpdateBalances)
       const givenObs = obligations.filter((o) => o.kind === 'given');
       const ensureObs = obligations.filter((o) => o.kind === 'ensure');
       const errorObs = obligations.filter((o) => o.kind === 'error');
@@ -276,8 +276,13 @@ describe('TransferFunds E2E Spike', () => {
       expect(errorObs[0].id).toBe('UC-TransferFunds:error:same-account');
       expect(errorObs[1].id).toBe('UC-TransferFunds:error:insufficient-funds');
 
-      expect(runtimeObs).toHaveLength(1);
-      expect(runtimeObs[0].id).toBe('UC-TransferFunds:runtime:no_throw');
+      expect(runtimeObs).toHaveLength(2);
+      expect(runtimeObs.map((o) => o.id)).toEqual(
+        expect.arrayContaining([
+          'UC-TransferFunds:runtime:no_throw',
+          'UC-TransferFunds:runtime:error_tag',
+        ])
+      );
 
       expect(smtObs).toHaveLength(3);
       expect(smtObs.map((o) => o.id)).toContain(

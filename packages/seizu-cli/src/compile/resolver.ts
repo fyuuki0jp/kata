@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { dirname, relative, resolve } from 'node:path';
 import type { DiscoveredSpec } from './discovery';
 
 export interface ResolvedTarget {
@@ -15,7 +15,7 @@ export function resolveTargets(
 ): readonly ResolvedTarget[] {
   const targets: ResolvedTarget[] = [];
 
-  for (const { spec } of specs) {
+  for (const { spec, modulePath } of specs) {
     if (spec.kind === 'requirement') {
       // Requirements don't have targets
       continue;
@@ -26,39 +26,62 @@ export function resolveTargets(
       continue;
     }
 
-    // Resolve target.module relative to the project base path (cwd),
-    // consistent with verify.ts which uses resolve(basePath, specObj.target.module)
-    let resolvedPath = resolve(basePath, target.module);
-
-    // Try common extensions if the file doesn't exist as-is
-    if (!existsSync(resolvedPath)) {
-      const extensions = ['.ts', '.tsx', '.js', '.jsx', '.mts', '.mjs'];
-      for (const ext of extensions) {
-        const candidate = resolvedPath + ext;
-        if (existsSync(candidate)) {
-          resolvedPath = candidate;
-          break;
-        }
-      }
-      // Also try index files
-      if (!existsSync(resolvedPath)) {
-        for (const ext of extensions) {
-          const candidate = resolve(resolvedPath, `index${ext}`);
-          if (existsSync(candidate)) {
-            resolvedPath = candidate;
-            break;
-          }
-        }
-      }
-    }
+    const resolvedPath = resolveTargetModule(
+      target.module,
+      basePath,
+      modulePath
+    );
 
     targets.push({
       specId: spec.id,
       kind: spec.kind,
-      modulePath: resolvedPath,
+      modulePath: relative(basePath, resolvedPath),
       exportName: target.export,
     });
   }
 
   return targets;
+}
+
+function resolveTargetModule(
+  moduleRef: string,
+  basePath: string,
+  specModulePath: string
+): string {
+  const candidates = new Set<string>();
+  const specDir = dirname(specModulePath);
+
+  // Resolve relative to project root first
+  candidates.add(resolve(basePath, moduleRef));
+  // Fallback: relative to spec file directory
+  candidates.add(resolve(specDir, moduleRef));
+  // Fallback: relative to package root one level above the spec file
+  candidates.add(resolve(specDir, '..', moduleRef));
+  // Fallback: two levels up (e.g., src/spec -> src)
+  candidates.add(resolve(specDir, '..', '..', moduleRef));
+
+  for (const candidate of candidates) {
+    const resolved = resolveWithExtensions(candidate);
+    if (resolved) return resolved;
+  }
+
+  // Nothing found, return best-effort project-root resolution
+  return resolve(basePath, moduleRef);
+}
+
+function resolveWithExtensions(base: string): string | null {
+  if (existsSync(base)) return base;
+
+  const extensions = ['.ts', '.tsx', '.js', '.jsx', '.mts', '.mjs'];
+  for (const ext of extensions) {
+    const candidate = base + ext;
+    if (existsSync(candidate)) return candidate;
+  }
+
+  for (const ext of extensions) {
+    const candidate = resolve(base, `index${ext}`);
+    if (existsSync(candidate)) return candidate;
+  }
+
+  return null;
 }

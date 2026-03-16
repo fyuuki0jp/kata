@@ -148,7 +148,10 @@ export async function runSpecCompile(
   });
 
   const entrypointFiles = [...new Set(discovered.map((d) => d.modulePath))];
-  const digest = computeDigest(entrypointFiles);
+  const entrypointPaths = entrypointFiles.map((p) =>
+    relative(basePath, p).replace(/\\/g, '/')
+  );
+  const digest = computeDigest(entrypointPaths, basePath);
 
   const graphArtifact: GraphArtifact = {
     artifactVersion: '3.0',
@@ -167,9 +170,9 @@ export async function runSpecCompile(
   const manifestArtifact: ManifestArtifact = {
     artifactVersion: '3.0',
     artifactDigest: digest,
-    entrypoints: entrypointFiles.map((p) => ({
-      path: relative(basePath, p),
-      digest: computeDigest([p]),
+    entrypoints: entrypointPaths.map((p) => ({
+      path: p,
+      digest: computeDigest([p], basePath),
     })),
     targets,
     specs: discovered.map((d) => {

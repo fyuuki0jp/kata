@@ -105,6 +105,13 @@ export function generateObligations(
         clauseId: 'no_throw',
         description: 'Target function must not throw',
       });
+      obligations.push({
+        id: `${spec.id}:runtime:error_tag`,
+        specId: spec.id,
+        kind: 'runtime',
+        clauseId: 'error_tag',
+        description: 'Returned error must use a declared error tag',
+      });
       // SMT consistency
       obligations.push({
         id: `${spec.id}:smt:consistency`,
