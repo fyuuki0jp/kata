@@ -47,12 +47,15 @@ export async function proveGraph(
  * Resolve predicate IR: try AST-extracted IR first, fall back to Function.toString().
  */
 function resolvePredicateIR(
+  specId: string,
+  clauseKind: string,
   clauseId: string,
   predicate: (...args: never) => unknown,
   predicateIRs?: ReadonlyMap<string, SmtExpr>
 ): SmtExpr {
   if (predicateIRs) {
-    const astIR = predicateIRs.get(clauseId);
+    const key = `${specId}:${clauseKind}:${clauseId}`;
+    const astIR = predicateIRs.get(key);
     if (astIR) return astIR;
   }
   return extractPredicateIR(predicate);
@@ -139,7 +142,13 @@ async function proveLawSoundness(
 
   const lawExprs: SmtExpr[] = [];
   for (const clause of spec.laws) {
-    const ir = resolvePredicateIR(clause.id, clause.predicate, predicateIRs);
+    const ir = resolvePredicateIR(
+      spec.id,
+      'law',
+      clause.id,
+      clause.predicate,
+      predicateIRs
+    );
     if (ir.kind === 'unsupported') {
       return {
         obligationId,
@@ -236,7 +245,13 @@ async function proveSpecConsistency(
   const unsupportedClauses: string[] = [];
 
   for (const clause of spec.given) {
-    const ir = resolvePredicateIR(clause.id, clause.predicate, predicateIRs);
+    const ir = resolvePredicateIR(
+      spec.id,
+      'given',
+      clause.id,
+      clause.predicate,
+      predicateIRs
+    );
     if (ir.kind === 'unsupported') {
       unsupportedClauses.push(`given "${clause.id}": ${ir.reason}`);
     } else {
@@ -245,7 +260,13 @@ async function proveSpecConsistency(
   }
 
   for (const clause of spec.ensures) {
-    const ir = resolvePredicateIR(clause.id, clause.predicate, predicateIRs);
+    const ir = resolvePredicateIR(
+      spec.id,
+      'ensure',
+      clause.id,
+      clause.predicate,
+      predicateIRs
+    );
     if (ir.kind === 'unsupported') {
       unsupportedClauses.push(`ensure "${clause.id}": ${ir.reason}`);
     } else {
@@ -254,7 +275,13 @@ async function proveSpecConsistency(
   }
 
   for (const clause of spec.invariants) {
-    const ir = resolvePredicateIR(clause.id, clause.predicate, predicateIRs);
+    const ir = resolvePredicateIR(
+      spec.id,
+      'invariant',
+      clause.id,
+      clause.predicate,
+      predicateIRs
+    );
     if (ir.kind === 'unsupported') {
       unsupportedClauses.push(`invariant "${clause.id}": ${ir.reason}`);
     } else {
@@ -352,7 +379,13 @@ async function proveErrorCompleteness(
   const errorExprs: { id: string; ir: SmtExpr }[] = [];
   for (const clause of spec.errors) {
     if (clause.predicate) {
-      const ir = resolvePredicateIR(clause.id, clause.predicate, predicateIRs);
+      const ir = resolvePredicateIR(
+        spec.id,
+        'errorClause',
+        clause.id,
+        clause.predicate,
+        predicateIRs
+      );
       if (ir.kind === 'unsupported') {
         return {
           obligationId,
@@ -463,7 +496,13 @@ async function proveRefinement(
 
   if (depSpec.kind === 'usecase') {
     for (const clause of depSpec.ensures) {
-      const ir = resolvePredicateIR(clause.id, clause.predicate, predicateIRs);
+      const ir = resolvePredicateIR(
+        depSpec.id,
+        'ensure',
+        clause.id,
+        clause.predicate,
+        predicateIRs
+      );
       if (ir.kind === 'unsupported') {
         return {
           obligationId,
@@ -474,7 +513,13 @@ async function proveRefinement(
       axioms.push(ir);
     }
     for (const clause of depSpec.invariants) {
-      const ir = resolvePredicateIR(clause.id, clause.predicate, predicateIRs);
+      const ir = resolvePredicateIR(
+        depSpec.id,
+        'invariant',
+        clause.id,
+        clause.predicate,
+        predicateIRs
+      );
       if (ir.kind === 'unsupported') {
         return {
           obligationId,
@@ -486,7 +531,13 @@ async function proveRefinement(
     }
   } else if (depSpec.kind === 'law') {
     for (const clause of depSpec.laws) {
-      const ir = resolvePredicateIR(clause.id, clause.predicate, predicateIRs);
+      const ir = resolvePredicateIR(
+        depSpec.id,
+        'law',
+        clause.id,
+        clause.predicate,
+        predicateIRs
+      );
       if (ir.kind === 'unsupported') {
         return {
           obligationId,
@@ -501,7 +552,13 @@ async function proveRefinement(
   // Collect preconditions from the spec's given clauses
   const preconditions: SmtExpr[] = [];
   for (const clause of spec.given) {
-    const ir = resolvePredicateIR(clause.id, clause.predicate, predicateIRs);
+    const ir = resolvePredicateIR(
+      spec.id,
+      'given',
+      clause.id,
+      clause.predicate,
+      predicateIRs
+    );
     if (ir.kind === 'unsupported') {
       return {
         obligationId,
@@ -517,7 +574,13 @@ async function proveRefinement(
   // Prove each ensure clause
   const ensureResults: SmtResult[] = [];
   for (const clause of spec.ensures) {
-    const goal = resolvePredicateIR(clause.id, clause.predicate, predicateIRs);
+    const goal = resolvePredicateIR(
+      spec.id,
+      'ensure',
+      clause.id,
+      clause.predicate,
+      predicateIRs
+    );
     if (goal.kind === 'unsupported') {
       ensureResults.push({
         obligationId: `${obligationId}/${clause.id}`,

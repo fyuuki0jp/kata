@@ -1,4 +1,4 @@
-import { globSync } from 'node:fs';
+import { readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import type { AnySpec } from 'seizu/spec';
@@ -9,6 +9,42 @@ export interface DiscoveredSpec {
   readonly index: number;
 }
 
+/**
+ * Resolve simple glob patterns (e.g. "src/spec/*.spec.ts") to absolute file paths.
+ * Only supports single-level `*` wildcards in the filename portion — no `**` recursion.
+ */
+function resolveGlobPatterns(
+  patterns: readonly string[],
+  basePath: string
+): string[] {
+  const files: string[] = [];
+  for (const pattern of patterns) {
+    if (pattern.includes('*')) {
+      // Simple glob: split into dir + filename pattern
+      const dir = resolve(
+        basePath,
+        pattern.substring(0, pattern.lastIndexOf('/'))
+      );
+      const filePattern = pattern.substring(pattern.lastIndexOf('/') + 1);
+      const regex = new RegExp(
+        '^' + filePattern.replace(/\./g, '\\.').replace(/\*/g, '.*') + '$'
+      );
+      try {
+        for (const entry of readdirSync(dir)) {
+          if (regex.test(entry)) {
+            files.push(resolve(dir, entry));
+          }
+        }
+      } catch {
+        /* dir doesn't exist */
+      }
+    } else {
+      files.push(resolve(basePath, pattern));
+    }
+  }
+  return [...new Set(files)]; // dedup
+}
+
 export async function discoverSpecs(
   entrypoints: readonly string[],
   basePath: string
@@ -16,16 +52,7 @@ export async function discoverSpecs(
   const discovered: DiscoveredSpec[] = [];
 
   // 1. Resolve glob patterns to file paths
-  const filePaths: string[] = [];
-  for (const pattern of entrypoints) {
-    const matches = globSync(pattern, { cwd: basePath });
-    for (const match of matches) {
-      const absolute = resolve(basePath, match);
-      if (!filePaths.includes(absolute)) {
-        filePaths.push(absolute);
-      }
-    }
-  }
+  const filePaths = resolveGlobPatterns(entrypoints, basePath);
 
   // 2. For each file, dynamically import and read .specs export
   for (const filePath of filePaths) {

@@ -83,7 +83,6 @@ export async function verifyUsecase(
   const evaluationCounts = new Map<string, number>();
   let acceptedRuns = 0;
   let discardedRuns = 0;
-  let totalRuns = 0;
 
   // Initialize all obligations as UNKNOWN with zero evaluation counts
   for (const g of spec.given) {
@@ -121,7 +120,6 @@ export async function verifyUsecase(
   try {
     await fc.assert(
       fc.asyncProperty(options.inputArbitrary, async (input: unknown) => {
-        totalRuns++;
         const fixture = await options.setup();
         try {
           // 1. snapshot before
@@ -169,10 +167,15 @@ export async function verifyUsecase(
             const matchingError = spec.errors.find((e) => e.tag === errorTag);
             if (!matchingError) {
               // Unmatched error tag
-              obligationResults.set(`${spec.id}:runtime:no_throw`, {
-                obligationId: `${spec.id}:runtime:no_throw`,
+              obligationResults.set(`${spec.id}:runtime:unmatched_error`, {
+                obligationId: `${spec.id}:runtime:unmatched_error`,
                 status: 'REFUTED',
-                counterexample: { input, error: result.error, tag: errorTag },
+                counterexample: {
+                  input,
+                  error: result.error,
+                  tag: errorTag,
+                  message: `Error tag "${errorTag}" does not match any ErrorClause`,
+                },
               });
               return false;
             }
@@ -316,7 +319,7 @@ export async function verifyUsecase(
     // Check discard threshold
     if (
       acceptedRuns < minAcceptedRuns ||
-      discardedRuns / Math.max(totalRuns, 1) > maxDiscardRatio
+      discardedRuns > acceptedRuns * maxDiscardRatio
     ) {
       // All obligations stay UNKNOWN
       return {

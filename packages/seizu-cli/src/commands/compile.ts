@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { relative, resolve } from 'node:path';
 import type { CAC } from 'cac';
 import type { SmtExpr } from 'seizu/smt';
 import { createSolver, proveGraph } from 'seizu/smt';
@@ -110,7 +110,10 @@ export async function runSpecCompile(
       const extracted = extractPredicatesFromSource(sourceCode, tsPath);
       for (const pred of extracted) {
         if (pred.ir.kind !== 'unsupported') {
-          predicateIRMap.set(pred.clauseId, pred.ir);
+          predicateIRMap.set(
+            `${pred.specId}:${pred.clauseKind}:${pred.clauseId}`,
+            pred.ir
+          );
         }
       }
       if (extracted.length > 0) {
@@ -144,7 +147,7 @@ export async function runSpecCompile(
     return { ...obl, status: 'PENDING' as const };
   });
 
-  const entrypointFiles = discovered.map((d) => d.modulePath);
+  const entrypointFiles = [...new Set(discovered.map((d) => d.modulePath))];
   const digest = computeDigest(entrypointFiles);
 
   const graphArtifact: GraphArtifact = {
@@ -164,19 +167,25 @@ export async function runSpecCompile(
   const manifestArtifact: ManifestArtifact = {
     artifactVersion: '3.0',
     artifactDigest: digest,
-    entrypoints: discovered.map((d) => ({
-      path: d.modulePath,
-      digest: computeDigest([d.modulePath]),
+    entrypoints: entrypointFiles.map((p) => ({
+      path: relative(basePath, p),
+      digest: computeDigest([p]),
     })),
     targets,
-    specs: discovered.map((d, i) => ({
-      specId: d.spec.id,
-      kind: d.spec.kind,
-      modulePath: d.modulePath,
-      exportName: 'specs',
-      index: i,
-      specHash: '',
-    })),
+    specs: discovered.map((d) => {
+      // Compute local index: position of this spec among specs from the same module
+      const localIndex = discovered
+        .filter((other) => other.modulePath === d.modulePath)
+        .findIndex((other) => other.spec.id === d.spec.id);
+      return {
+        specId: d.spec.id,
+        kind: d.spec.kind,
+        modulePath: relative(basePath, d.modulePath),
+        exportName: 'specs',
+        index: localIndex,
+        specHash: '',
+      };
+    }),
   };
 
   writeArtifacts(artifactDir, graphArtifact, manifestArtifact);

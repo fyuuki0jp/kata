@@ -268,7 +268,10 @@ export function encodeExpr(expr: SmtExpr): string {
   switch (expr.kind) {
     case 'literal':
       if (typeof expr.value === 'boolean') return expr.value.toString();
-      if (typeof expr.value === 'string') return `"${expr.value}"`;
+      if (typeof expr.value === 'string') {
+        const escaped = expr.value.replace(/\\/g, '\\\\').replace(/"/g, '""');
+        return `"${escaped}"`;
+      }
       if (expr.value < 0) return `(- ${Math.abs(expr.value)})`;
       return expr.value.toString();
     case 'var':

@@ -33,6 +33,9 @@ pnpm-debug.log*
 # Astro
 .astro/
 
+# Seizu artifacts
+.seizu/
+
 # Misc
 contracts.flow.json
 tmp.md

@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
+import { resolve } from 'node:path';
 import type { DiscoveredSpec } from './discovery';
 
 export interface ResolvedTarget {
@@ -11,11 +11,11 @@ export interface ResolvedTarget {
 
 export function resolveTargets(
   specs: readonly DiscoveredSpec[],
-  _basePath: string
+  basePath: string
 ): readonly ResolvedTarget[] {
   const targets: ResolvedTarget[] = [];
 
-  for (const { spec, modulePath } of specs) {
+  for (const { spec } of specs) {
     if (spec.kind === 'requirement') {
       // Requirements don't have targets
       continue;
@@ -26,9 +26,9 @@ export function resolveTargets(
       continue;
     }
 
-    // Resolve target.module relative to the declaring spec's module path
-    const specDir = dirname(modulePath);
-    let resolvedPath = resolve(specDir, target.module);
+    // Resolve target.module relative to the project base path (cwd),
+    // consistent with verify.ts which uses resolve(basePath, specObj.target.module)
+    let resolvedPath = resolve(basePath, target.module);
 
     // Try common extensions if the file doesn't exist as-is
     if (!existsSync(resolvedPath)) {

@@ -14,7 +14,7 @@ interface SerializedSpec {
   readonly kind: 'requirement' | 'usecase' | 'law';
   readonly id: string;
   readonly name: string;
-  readonly dependsOn: readonly { id: string; mode: 'axiom' | 'trace' }[];
+  readonly dependsOn: readonly (string | { id: string; mode?: string })[];
   // RequirementSpec fields
   readonly actors?: readonly string[];
   readonly goal?: string;
@@ -90,8 +90,18 @@ export function renderSpecMarkdown(graph: GraphJson, title?: string): string {
   lines.push('```mermaid');
   lines.push('graph TD');
 
-  for (const edge of graph.edges) {
-    lines.push(`  ${edge.from} --> ${edge.to}`);
+  if (graph.edges.length > 0) {
+    for (const edge of graph.edges) {
+      lines.push(`  ${edge.from} --> ${edge.to}`);
+    }
+  } else {
+    // Fallback: derive edges from spec.dependsOn
+    for (const spec of graph.specs) {
+      for (const dep of spec.dependsOn) {
+        const depId = typeof dep === 'string' ? dep : dep.id;
+        lines.push(`  ${spec.id} --> ${depId}`);
+      }
+    }
   }
 
   for (const spec of graph.specs) {
