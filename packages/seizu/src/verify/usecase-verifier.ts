@@ -83,6 +83,7 @@ export async function verifyUsecase(
   const evaluationCounts = new Map<string, number>();
   let acceptedRuns = 0;
   let discardedRuns = 0;
+  let observedError = false;
 
   // Initialize all obligations as UNKNOWN with zero evaluation counts
   for (const g of spec.given) {
@@ -111,11 +112,17 @@ export async function verifyUsecase(
     evaluationCounts.set(key, 0);
   }
   const noThrowKey = `${spec.id}:runtime:no_throw`;
+  const errorTagKey = `${spec.id}:runtime:error_tag`;
   obligationResults.set(noThrowKey, {
     obligationId: noThrowKey,
     status: 'UNKNOWN',
   });
+  obligationResults.set(errorTagKey, {
+    obligationId: errorTagKey,
+    status: 'UNKNOWN',
+  });
   evaluationCounts.set(noThrowKey, 0);
+  evaluationCounts.set(errorTagKey, 0);
 
   try {
     await fc.assert(
@@ -132,10 +139,11 @@ export async function verifyUsecase(
               givenKey,
               (evaluationCounts.get(givenKey) ?? 0) + 1
             );
-            if (!g.predicate({ input, state: before })) {
+            const givenOk = g.predicate({ input, state: before });
+            if (!givenOk) {
               discardedRuns++;
-              return true; // discard this run
             }
+            fc.pre(givenOk);
           }
 
           // 3. Execute target
@@ -163,12 +171,17 @@ export async function verifyUsecase(
 
           // 5. Check error clauses (if result is error)
           if (!isOk(result)) {
+            observedError = true;
             const errorTag = spec.classifyError(result.error);
             const matchingError = spec.errors.find((e) => e.tag === errorTag);
             if (!matchingError) {
               // Unmatched error tag
-              obligationResults.set(`${spec.id}:runtime:unmatched_error`, {
-                obligationId: `${spec.id}:runtime:unmatched_error`,
+              evaluationCounts.set(
+                errorTagKey,
+                (evaluationCounts.get(errorTagKey) ?? 0) + 1
+              );
+              obligationResults.set(errorTagKey, {
+                obligationId: errorTagKey,
                 status: 'REFUTED',
                 counterexample: {
                   input,
@@ -185,6 +198,14 @@ export async function verifyUsecase(
                 errorKey,
                 (evaluationCounts.get(errorKey) ?? 0) + 1
               );
+              evaluationCounts.set(
+                errorTagKey,
+                (evaluationCounts.get(errorTagKey) ?? 0) + 1
+              );
+              obligationResults.set(errorTagKey, {
+                obligationId: errorTagKey,
+                status: 'TESTED',
+              });
               if (
                 !matchingError.predicate({
                   input,
@@ -206,6 +227,14 @@ export async function verifyUsecase(
                 errorKey,
                 (evaluationCounts.get(errorKey) ?? 0) + 1
               );
+              evaluationCounts.set(
+                errorTagKey,
+                (evaluationCounts.get(errorTagKey) ?? 0) + 1
+              );
+              obligationResults.set(errorTagKey, {
+                obligationId: errorTagKey,
+                status: 'TESTED',
+              });
             }
           }
 
@@ -328,6 +357,19 @@ export async function verifyUsecase(
         obligations: [...obligationResults.values()],
         success: false,
       };
+    }
+
+    if (
+      !observedError &&
+      acceptedRuns > 0 &&
+      (obligationResults.get(errorTagKey)?.status ?? 'UNKNOWN') === 'UNKNOWN'
+    ) {
+      obligationResults.set(errorTagKey, {
+        obligationId: errorTagKey,
+        status: 'TESTED',
+        runs: acceptedRuns,
+      });
+      evaluationCounts.set(errorTagKey, acceptedRuns);
     }
 
     // Mark obligations as TESTED only if their predicate was actually evaluated

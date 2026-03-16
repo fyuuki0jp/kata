@@ -196,6 +196,63 @@ describe('SMT Spike', () => {
     expect(selectLogic([stringExpr])).toBe('QF_SLIA');
   });
 
+  test('escapes SMT string literals with control characters', () => {
+    const expr = {
+      kind: 'literal' as const,
+      value: 'He said "hi"\npath\\name',
+    };
+
+    expect(encodeExpr(expr)).toBe('"He said \\"hi\\"\\npath\\\\name"');
+  });
+
+  test('encodes special calls for strings and collections', () => {
+    const startsWithExpr = {
+      kind: 'call' as const,
+      callee: 'String.startsWith',
+      args: [
+        { kind: 'literal' as const, value: 'abc' },
+        { kind: 'literal' as const, value: 'a' },
+      ],
+    };
+    expect(encodeExpr(startsWithExpr)).toBe('(str.prefixof "a" "abc")');
+
+    const includesExpr = {
+      kind: 'call' as const,
+      callee: 'Collection.includes',
+      args: [
+        {
+          kind: 'prop' as const,
+          obj: { kind: 'var' as const, name: 'ctx', path: [] as const },
+          prop: 'items',
+        },
+        { kind: 'literal' as const, value: 3 },
+      ],
+    };
+    expect(encodeExpr(includesExpr)).toContain('member_of_ctx_items_Int');
+  });
+
+  test('encodes quantified expressions', () => {
+    const forallExpr = {
+      kind: 'forall' as const,
+      varName: 'i',
+      domain: {
+        kind: 'prop' as const,
+        obj: { kind: 'var' as const, name: 'ctx', path: [] as const },
+        prop: 'items',
+      },
+      body: {
+        kind: 'binop' as const,
+        op: '>' as const,
+        left: { kind: 'var' as const, name: 'i', path: [] as const },
+        right: { kind: 'literal' as const, value: 0 },
+      },
+    };
+
+    const encoded = encodeExpr(forallExpr);
+    expect(encoded).toContain('(forall');
+    expect(encoded).toContain('member_of_ctx_items');
+  });
+
   test('declares membership predicates for quantified domains', () => {
     const quantified = {
       kind: 'forall' as const,

@@ -224,6 +224,12 @@ function membershipPredicateName(domain: string, sort: SmtSort): string {
   return `member_of_${domain}_${sort}`;
 }
 
+function encodeStringLiteral(value: string): string {
+  // JSON.stringify escapes backslashes, quotes, and control characters
+  // in a way that matches SMT-LIB string literal rules.
+  return JSON.stringify(value);
+}
+
 function encodeSpecialCall(
   expr: Extract<SmtExpr, { kind: 'call' }>
 ): string | null {
@@ -269,8 +275,7 @@ export function encodeExpr(expr: SmtExpr): string {
     case 'literal':
       if (typeof expr.value === 'boolean') return expr.value.toString();
       if (typeof expr.value === 'string') {
-        const escaped = expr.value.replace(/\\/g, '\\\\').replace(/"/g, '""');
-        return `"${escaped}"`;
+        return encodeStringLiteral(expr.value);
       }
       if (expr.value < 0) return `(- ${Math.abs(expr.value)})`;
       return expr.value.toString();
