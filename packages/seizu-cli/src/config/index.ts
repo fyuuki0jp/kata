@@ -40,6 +40,22 @@ function validateConfig(config: unknown): asserts config is SeizuConfig {
       'Config must export a default object with { verify: { contracts: ContractEntry[] } }'
     );
   }
+
+  if (config.formalSpec !== undefined) {
+    if (!isRecord(config.formalSpec)) {
+      throw new ConfigError('formalSpec must be an object');
+    }
+    if (!Array.isArray(config.formalSpec.entrypoints)) {
+      throw new ConfigError('formalSpec.entrypoints must be a string array');
+    }
+    for (const ep of config.formalSpec.entrypoints) {
+      if (typeof ep !== 'string') {
+        throw new ConfigError(
+          'formalSpec.entrypoints must contain only strings'
+        );
+      }
+    }
+  }
 }
 
 export async function loadConfig(configPath?: string): Promise<ResolvedConfig> {

@@ -11,6 +11,7 @@ const {
   isExcludedMock,
   renderMarkdownMock,
   docGenerateMock,
+  runSpecVerifyMock,
   existsSyncMock,
   mkdirSyncMock,
   readFileSyncMock,
@@ -33,6 +34,7 @@ const {
     isExcludedMock: vi.fn(() => false),
     renderMarkdownMock: vi.fn(),
     docGenerateMock: vi.fn(),
+    runSpecVerifyMock: vi.fn(),
     existsSyncMock: vi.fn(),
     mkdirSyncMock: vi.fn(),
     readFileSyncMock: vi.fn(),
@@ -74,6 +76,10 @@ vi.mock('../src/doc/renderer/markdown', () => ({
 
 vi.mock('../src/domain/pipeline', () => ({
   docGenerate: docGenerateMock,
+}));
+
+vi.mock('../src/commands/verify', () => ({
+  runSpecVerify: runSpecVerifyMock,
 }));
 
 vi.mock('node:fs', () => ({
@@ -142,6 +148,7 @@ function makeOptions(
     entrypoint: undefined,
     sourceScope: undefined,
     stdout: false,
+    artifactDir: '.seizu',
     ...overrides,
   };
 }
@@ -225,6 +232,53 @@ describe('registerDocCommand', () => {
 
     expect(getMessagesMock).toHaveBeenCalledWith('ja');
     expect(process.stdout.write).toHaveBeenCalledWith('# generated');
+    expect(docGenerateMock).not.toHaveBeenCalled();
+  });
+
+  test('runs spec verification before rendering spec markdown', async () => {
+    runSpecVerifyMock.mockResolvedValue({
+      graphArtifact: {
+        artifactVersion: '3.0',
+        artifactDigest: 'digest',
+        specs: [
+          {
+            id: 'UC-CreateTransfer',
+            kind: 'usecase',
+            name: 'Create transfer',
+            dependsOn: [],
+          },
+        ],
+        obligations: [
+          {
+            id: 'UC-CreateTransfer:ensure:balance-preserved',
+            specId: 'UC-CreateTransfer',
+            kind: 'ensure',
+            clauseId: 'balance-preserved',
+            status: 'TESTED',
+          },
+        ],
+        edges: [],
+        smtResults: [],
+        diagnostics: [],
+      },
+      exitCode: 0,
+    });
+
+    const { action } = createCliHarness();
+
+    await expect(
+      action([], makeOptions({ specs: true, stdout: true }))
+    ).rejects.toMatchObject({ code: 0 });
+
+    expect(runSpecVerifyMock).toHaveBeenCalledWith({
+      config: 'seizu.config.ts',
+      artifactDir: '.seizu',
+      runs: '100',
+      silent: true,
+    });
+    expect(process.stdout.write).toHaveBeenCalledWith(
+      expect.stringContaining('TESTED')
+    );
     expect(docGenerateMock).not.toHaveBeenCalled();
   });
 

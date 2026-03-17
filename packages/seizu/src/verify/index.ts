@@ -1,5 +1,14 @@
+export type { LawVerifyOptions } from './law-verifier';
+export { verifyLaw } from './law-verifier';
 export type { ContractEntry, RunnerOptions } from './runner';
 export { verify, verifyContract } from './runner';
+// Spec verification exports
+export type {
+  ObligationResult as SpecObligationResult,
+  ObligationStatus,
+  SpecVerifyResult,
+} from './spec-types';
+export { mergeEvidence } from './spec-verifier';
 export type {
   CheckKind,
   CheckResult,
@@ -7,6 +16,8 @@ export type {
   VerifyResult,
   ViolationKind,
 } from './types';
+export type { UsecaseVerifyOptions } from './usecase-verifier';
+export { verifyUsecase } from './usecase-verifier';
 
 import type { Arbitrary } from 'fast-check';
 import type { Contract } from '../types';

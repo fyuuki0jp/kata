@@ -13,8 +13,11 @@ import {
   resolveGlobs,
 } from '../doc/parser/source-resolver';
 import { renderMarkdown } from '../doc/renderer/markdown';
+import type { GraphJson } from '../doc/spec-renderer';
+import { renderSpecMarkdown } from '../doc/spec-renderer';
 import { docGenerate } from '../domain/pipeline';
 import type { DocPipelineState, SourceFileEntry } from '../domain/types';
+import { runSpecVerify } from './verify';
 
 export function registerDocCommand(cli: CAC): void {
   cli
@@ -46,8 +49,43 @@ export function registerDocCommand(cli: CAC): void {
       { default: 'auto' }
     )
     .option('--stdout', 'Write to stdout instead of file', { default: false })
+    .option('--specs', 'Generate documentation from formal specs')
+    .option('--artifact-dir <path>', 'Artifact directory', {
+      default: '.seizu',
+    })
     .action(async (contracts: string[], options) => {
       try {
+        // ---- Spec-based documentation mode ----
+        if (options.specs) {
+          const basePath = process.cwd();
+          const result = await runSpecVerify({
+            config: options.config,
+            artifactDir: options.artifactDir,
+            runs: '100',
+            silent: true,
+          });
+          const graph = result.graphArtifact as GraphJson;
+
+          const specTitle = options.title ?? 'Spec Documentation';
+          const specMarkdown = renderSpecMarkdown(graph, specTitle);
+
+          if (options.stdout) {
+            process.stdout.write(specMarkdown);
+          } else {
+            const specOutputPath = resolve(
+              basePath,
+              options.output ?? 'docs/specs.md'
+            );
+            mkdirSync(dirname(specOutputPath), { recursive: true });
+            writeFileSync(specOutputPath, specMarkdown, 'utf-8');
+            console.log(`Spec documentation written to ${specOutputPath}`);
+          }
+
+          process.exit(0);
+          return;
+        }
+
+        // ---- Legacy contract-based documentation (unchanged) ----
         const { config } = await loadConfig(options.config);
         const locale = (options.locale ?? config.locale ?? 'en') as Locale;
 
