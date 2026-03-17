@@ -1,77 +1,46 @@
 import * as fc from 'fast-check';
 import type { Result } from '../result';
 import { isOk } from '../result';
+import type { ObservedEffects } from '../spec/clauses';
+import type { UsecaseSpec } from '../spec/specs';
 import type { ObligationResult, SpecVerifyResult } from './spec-types';
 
-// UsecaseSpec-like type (Spike inline)
-interface UsecaseSpecLike {
-  readonly id: string;
-  readonly name: string;
-  readonly classifyError: (error: unknown) => string;
-  readonly given: readonly {
-    readonly id: string;
-    readonly predicate: (ctx: { input: unknown; state: unknown }) => boolean;
-  }[];
-  readonly ensures: readonly {
-    readonly id: string;
-    readonly predicate: (ctx: {
-      before: unknown;
-      after: unknown;
-      input: unknown;
-      result: Result<unknown, unknown>;
-    }) => boolean;
-  }[];
-  readonly invariants: readonly {
-    readonly id: string;
-    readonly predicate: (ctx: {
-      before: unknown;
-      after: unknown;
-      input: unknown;
-      result: Result<unknown, unknown>;
-    }) => boolean;
-  }[];
-  readonly errors: readonly {
-    readonly id: string;
-    readonly tag: string;
-    readonly predicate?: (ctx: {
-      input: unknown;
-      error: unknown;
-      state: unknown;
-    }) => boolean;
-  }[];
-  readonly effects: readonly {
-    readonly id: string;
-    readonly facet: string;
-    readonly predicate: (observed: unknown, ctx: unknown) => boolean;
-  }[];
-}
-
-export interface UsecaseVerifyOptions {
+export interface UsecaseVerifyOptions<
+  I = unknown,
+  O = unknown,
+  E = unknown,
+  S = unknown,
+> {
   readonly setup: () => Promise<{
     deps: unknown;
     cleanup?: () => Promise<void>;
   }>;
-  readonly inputArbitrary: fc.Arbitrary<unknown>;
-  readonly snapshot: (deps: unknown) => Promise<unknown>;
+  readonly inputArbitrary: fc.Arbitrary<I>;
+  readonly snapshot: (deps: unknown) => Promise<S>;
   readonly observe?: (ctx: {
     deps: unknown;
-    before: unknown;
-    after: unknown;
-    result: Result<unknown, unknown>;
-  }) => Promise<unknown>;
+    before: S;
+    after: S;
+    result: Result<O, E>;
+  }) => Promise<ObservedEffects>;
   readonly targetFn: (
     deps: unknown,
-    input: unknown
-  ) => Promise<Result<unknown, unknown>>;
+    input: I
+  ) => Promise<Result<O, E>>;
   readonly numRuns?: number;
   readonly seed?: number;
   readonly minAcceptedRuns?: number;
   readonly maxDiscardRatio?: number;
 }
 
-export async function verifyUsecase(
-  spec: UsecaseSpecLike,
-  options: UsecaseVerifyOptions
+export async function verifyUsecase<
+  I = unknown,
+  O = unknown,
+  E = unknown,
+  S = unknown,
+>(
+  spec: UsecaseSpec<I, O, E, S>,
+  options: UsecaseVerifyOptions<I, O, E, S>
 ): Promise<SpecVerifyResult> {
   const numRuns = options.numRuns ?? 100;
   const minAcceptedRuns = options.minAcceptedRuns ?? 1;
@@ -126,7 +95,7 @@ export async function verifyUsecase(
 
   try {
     await fc.assert(
-      fc.asyncProperty(options.inputArbitrary, async (input: unknown) => {
+      fc.asyncProperty(options.inputArbitrary, async (input: I) => {
         const fixture = await options.setup();
         try {
           // 1. snapshot before
@@ -147,7 +116,7 @@ export async function verifyUsecase(
           }
 
           // 3. Execute target
-          let result: Result<unknown, unknown>;
+          let result: Result<O, E>;
           evaluationCounts.set(
             noThrowKey,
             (evaluationCounts.get(noThrowKey) ?? 0) + 1
@@ -305,12 +274,7 @@ export async function verifyUsecase(
                 (evaluationCounts.get(effKey) ?? 0) + 1
               );
               try {
-                if (
-                  !eff.predicate(
-                    observed as Parameters<typeof eff.predicate>[0],
-                    ctx
-                  )
-                ) {
+                if (!eff.predicate(observed, ctx)) {
                   obligationResults.set(
                     `${spec.id}:effect:${eff.id}:${eff.facet}`,
                     {
@@ -321,6 +285,11 @@ export async function verifyUsecase(
                   );
                   return false;
                 }
+                // Effect predicate passed — mark as tested
+                obligationResults.set(effKey, {
+                  obligationId: effKey,
+                  status: 'TESTED',
+                });
               } catch (err) {
                 obligationResults.set(
                   `${spec.id}:effect:${eff.id}:${eff.facet}`,

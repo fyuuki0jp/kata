@@ -40,20 +40,17 @@ describe('Dogfood E2E', () => {
   });
 
   test('LawSpec PBT verification works', () => {
-    const result = verifyLaw(
-      updateBalancesLaw as unknown as Parameters<typeof verifyLaw>[0],
-      {
-        targetFn: (...args: unknown[]) => {
-          const [from, to, amount, state] = args;
-          return updateBalances(state as AccountState, {
-            from: from as string,
-            to: to as string,
-            amount: amount as number,
-          });
-        },
-        numRuns: 50,
-      }
-    );
+    const result = verifyLaw(updateBalancesLaw, {
+      targetFn: (...args: unknown[]) => {
+        const [from, to, amount, state] = args;
+        return updateBalances(state as AccountState, {
+          from: from as string,
+          to: to as string,
+          amount: amount as number,
+        });
+      },
+      numRuns: 50,
+    });
 
     expect(result.success).toBe(true);
     expect(result.obligations.every((o) => o.status === 'TESTED')).toBe(true);
