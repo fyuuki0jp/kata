@@ -1,22 +1,6 @@
 import * as fc from 'fast-check';
+import type { LawSpec } from '../spec/specs';
 import type { ObligationResult, SpecVerifyResult } from './spec-types';
-
-// LawSpec型（別エージェントが作成中のspecs.tsに依存）
-// Spikeではインラインで型を定義
-interface LawSpecLike {
-  readonly id: string;
-  readonly name: string;
-  readonly target: { module: string; export: string };
-  readonly generators: Record<string, fc.Arbitrary<unknown>>;
-  readonly laws: readonly {
-    readonly id: string;
-    readonly description: string;
-    readonly predicate: (
-      args: Record<string, unknown>,
-      result: unknown
-    ) => boolean;
-  }[];
-}
 
 export interface LawVerifyOptions {
   readonly numRuns?: number;
@@ -25,30 +9,30 @@ export interface LawVerifyOptions {
   readonly targetFn: (...args: unknown[]) => unknown; // resolved target function
 }
 
-export function verifyLaw(
-  spec: LawSpecLike,
-  options: LawVerifyOptions
-): SpecVerifyResult {
+export function verifyLaw<
+  TArgs extends Record<string, unknown> = Record<string, unknown>,
+  R = unknown,
+>(spec: LawSpec<TArgs, R>, options: LawVerifyOptions): SpecVerifyResult {
   const results: ObligationResult[] = [];
   const numRuns = options.numRuns ?? 100;
 
-  // Build arbitrary from generators
-  const genKeys = Object.keys(spec.generators);
+  // Build arbitrary from generators (runtime values are fc.Arbitrary<...>)
   const generators = spec.generators as Record<string, fc.Arbitrary<unknown>>;
+  const genKeys = Object.keys(generators);
   const genArbs = genKeys.map((k) => generators[k]);
   const argsArb = fc.record(
     Object.fromEntries(genKeys.map((k, i) => [k, genArbs[i]]))
-  );
+  ) as fc.Arbitrary<TArgs>;
 
   for (const lawClause of spec.laws) {
     const obligationId = `${spec.id}:law:${lawClause.id}`;
 
     try {
       fc.assert(
-        fc.property(argsArb, (args: Record<string, unknown>) => {
+        fc.property(argsArb, (args: TArgs) => {
           // Call target function with generated args
           const argValues = genKeys.map((k) => args[k]);
-          const result = options.targetFn(...argValues);
+          const result = options.targetFn(...argValues) as R;
           // Check law predicate
           return lawClause.predicate(args, result);
         }),

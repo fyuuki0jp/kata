@@ -3,9 +3,17 @@ import { pathToFileURL } from 'node:url';
 import type { CAC } from 'cac';
 import type { Result } from 'seizu';
 import type { SmtResult } from 'seizu/smt';
-import type { SpecVerifyResult as PropagationSpecVerifyResult } from 'seizu/spec';
+import type {
+  LawSpec,
+  ObservedEffects,
+  SpecVerifyResult as PropagationSpecVerifyResult,
+  UsecaseSpec,
+} from 'seizu/spec';
 import { propagateEvidence, RefinementGraph } from 'seizu/spec';
-import type { SpecVerifyResult as PbtSpecVerifyResult } from 'seizu/verify';
+import type {
+  SpecVerifyResult as PbtSpecVerifyResult,
+  UsecaseVerifyOptions,
+} from 'seizu/verify';
 import { mergeEvidence, verify, verifyLaw, verifyUsecase } from 'seizu/verify';
 import {
   type GraphArtifact,
@@ -184,7 +192,7 @@ export async function runSpecVerify(
         }
 
         const pbtResult = verifyLaw(
-          specObj as unknown as Parameters<typeof verifyLaw>[0],
+          specObj as unknown as LawSpec,
           {
             targetFn: (...args: unknown[]) => targetFn(...args),
             numRuns,
@@ -240,23 +248,14 @@ export async function runSpecVerify(
         const snapshotFn = (mod[`${specObj.id}_snapshot`] ??
           mod.snapshot ??
           (async () => ({}))) as (deps: unknown) => Promise<unknown>;
-        const observeFn = (mod[`${specObj.id}_observe`] ?? mod.observe) as
-          | ((
-              ctx: Parameters<typeof verifyUsecase>[1]['observe'] extends
-                | ((ctx: infer T) => Promise<unknown>)
-                | undefined
-                ? T
-                : never
-            ) => Promise<unknown>)
-          | undefined;
+        const observeFn = (mod[`${specObj.id}_observe`] ??
+          mod.observe) as ((ctx: unknown) => Promise<ObservedEffects>) | undefined;
 
         const ucResult = await verifyUsecase(
-          specObj as unknown as Parameters<typeof verifyUsecase>[0],
+          specObj as unknown as UsecaseSpec,
           {
             setup: setupFn,
-            inputArbitrary: inputArb as Parameters<
-              typeof verifyUsecase
-            >[1]['inputArbitrary'],
+            inputArbitrary: inputArb as UsecaseVerifyOptions['inputArbitrary'],
             snapshot: snapshotFn,
             observe: observeFn,
             targetFn: targetFn as (
